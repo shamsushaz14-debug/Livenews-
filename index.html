@@ -4,15 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     
-    <!-- PWA & App Mode Meta Tags -->
+    <!-- PWA Fullscreen Meta Tags -->
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#121212">
     
-    <!-- Inline Manifest to avoid separate file creation -->
     <link rel="manifest" id="dynamic-manifest">
-    
     <title>News TV</title>
     
     <link rel="icon" href="icon.png" type="image/png">
@@ -130,7 +128,7 @@
             border: 0;
         }
 
-        /* ഫുൾ സ്ക്രീൻ / ലാൻഡ്സ്കേപ്പ് മോഡ് (ആദ്യം 16:9 ആയി ഓപ്പൺ ആകാൻ) */
+        /* ഫുൾ സ്ക്രീൻ മോഡ് (ആദ്യം കൃത്യമായ 16:9 റേഷ്യോയിൽ) */
         .player-container.fullscreen-mode {
             position: fixed !important;
             top: 0 !important;
@@ -152,20 +150,20 @@
             left: 50% !important;
             transform: translate(-50%, -50%) !important;
             width: 100vw !important;
-            height: 56.25vw !important;
+            height: 56.25vw !important; 
             max-height: 100vh !important;
-            max-width: 177.78vh !important;
+            max-width: 177.78vh !important; /* 16:9 Lock */
             padding-bottom: 0 !important;
-            transition: transform 0.3s ease, width 0.3s ease, height 0.3s ease;
+            transition: all 0.3s ease;
         }
 
-        /* സ്ട്രെച്ച് ബട്ടൺ അമർത്തുമ്പോൾ മൊബൈൽ സ്ക്രീൻ ഫുൾ നിറയാൻ (20:9 Ultra-wide optimization) */
+        /* സ്ട്രെച്ച് ബട്ടൺ അമർത്തുമ്പോൾ 20:9 ഡിസ്‌പ്ലേയിൽ ബ്ലാക്ക് ബാറുകൾ ഒഴിവാക്കി ഫുൾ ആകാൻ */
         .player-container.fullscreen-mode.ratio-stretch .video-wrapper {
             width: 100vw !important;
             height: 100vh !important;
             max-height: 100vh !important;
             max-width: 100vw !important;
-            transform: translate(-50%, -50%) scale(1.3) !important;
+            transform: translate(-50%, -50%) scale(1.25) !important;
         }
 
         /* Top Right Lock Button */
@@ -463,7 +461,7 @@
         </div>
         <div class="header-controls">
             <button class="icon-btn" onclick="toggleDarkMode()">🌓 Theme</button>
-            <button id="install-app-btn" onclick="installApp()" style="display:none;" class="icon-btn">⬇ Install</button>
+            <button id="install-app-btn" onclick="installApp()" style="display:none;" class="icon-btn">⬇ Install App</button>
         </div>
     </header>
 
@@ -530,12 +528,13 @@
     </footer>
 
     <script>
-        // Inline Manifest Data URI සැറ്റപ്പ് ചെയ്യൽ (വേറെ ഫയൽ ആവശ്യമില്ലാതെ ആപ്പ് മോഡിൽ കിട്ടാൻ)
+        // PWA ഓട്ടോമാറ്റിക് ഇൻസ്റ്റാളേഷൻ സപ്പോർട്ട് ചെയ്യുന്നതിനുള്ള Manifest Setup (Display: Fullscreen)
         const manifestData = {
             "name": "News TV",
             "short_name": "NewsTV",
-            "start_url": window.location.href,
-            "display": "standalone",
+            "start_url": "./",
+            "display": "fullscreen",
+            "orientation": "any",
             "background_color": "#121212",
             "theme_color": "#121212",
             "icons": [{ "src": "icon.png", "sizes": "192x192", "type": "image/png" }]
@@ -543,6 +542,18 @@
         const stringManifest = JSON.stringify(manifestData);
         const blob = new Blob([stringManifest], {type: 'application/json'});
         document.getElementById('dynamic-manifest').setAttribute('href', URL.createObjectURL(blob));
+
+        // PWA ഇൻസ്റ്റാൾ ആകാൻ ആവശ്യമായ ഓട്ടോമാറ്റിക് Service Worker സൃഷ്ടിക്കൽ
+        if ('serviceWorker' in navigator) {
+            const swCode = `
+                self.addEventListener('install', e => e.waitUntil(self.skipWaiting()));
+                self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
+                self.addEventListener('fetch', e => e.respondWith(fetch(e.request)));
+            `;
+            const swBlob = new Blob([swCode], {type: 'application/javascript'});
+            const swUrl = URL.createObjectURL(swBlob);
+            navigator.serviceWorker.register(swUrl).catch(()=>{});
+        }
 
         const channels = [
             { id: 0, name: "24 News", liveVideoId: "1wECsnGZcfc", logo: "24.png" },
@@ -732,7 +743,7 @@
             document.body.classList.toggle('light-mode');
         }
 
-        /* എക്സിറ്റ് ബട്ടൺ അമർത്തുമ്പോൾ ക്രോം ബ്രൗസർ മെയിൻ പേജിലേക്ക് പോകാതെ ആപ്പ് ക്ലോസ് ആകാൻ */
+        /* എക്സിറ്റ് ബട്ടൺ അമർത്തുമ്പോൾ പൂർണ്ണമായി ആപ്പ് ക്ലോസ് ചെയ്യാനുള്ള പ്രവർത്തനം */
         function directExitApp() {
             const iframe = document.getElementById('tv-player');
             if (iframe) iframe.src = "";
@@ -755,6 +766,7 @@
                 return;
             }
 
+            // ഫുൾ സ്ക്രീൻ ആക്കുമ്പോൾ ആദ്യം കൃത്യമായ 16:9 റേഷ്യോയിൽ തന്നെ ഓപ്പൺ ആകാൻ സജ്ജീകരിക്കുന്നു
             isStretchMode = false;
             playerBox.classList.remove('ratio-stretch');
             const stretchBtn = document.getElementById('side-stretch-btn');
@@ -810,4 +822,3 @@
     </script>
 </body>
 </html>
-
