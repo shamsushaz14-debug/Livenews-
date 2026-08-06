@@ -4,11 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     
-    <title>News TV</title>
-    
+    <!-- PWA & App Mode Meta Tags -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#121212">
     
-    <link rel="manifest" href="manifest.json">
+    <!-- Inline Manifest to avoid separate file creation -->
+    <link rel="manifest" id="dynamic-manifest">
+    
+    <title>News TV</title>
+    
     <link rel="icon" href="icon.png" type="image/png">
     <link rel="apple-touch-icon" href="icon.png">
 
@@ -124,7 +130,7 @@
             border: 0;
         }
 
-        /* ഫുൾ സ്ക്രീൻ / ലാൻഡ്സ്കേപ്പ് മോഡ് */
+        /* ഫുൾ സ്ക്രീൻ / ലാൻഡ്സ്കേപ്പ് മോഡ് (ആദ്യം 16:9 ആയി ഓപ്പൺ ആകാൻ) */
         .player-container.fullscreen-mode {
             position: fixed !important;
             top: 0 !important;
@@ -153,7 +159,7 @@
             transition: transform 0.3s ease, width 0.3s ease, height 0.3s ease;
         }
 
-        /* 100% Stretch to Fill Mobile Screen (20:9) */
+        /* സ്ട്രെച്ച് ബട്ടൺ അമർത്തുമ്പോൾ മൊബൈൽ സ്ക്രീൻ ഫുൾ നിറയാൻ (20:9 Ultra-wide optimization) */
         .player-container.fullscreen-mode.ratio-stretch .video-wrapper {
             width: 100vw !important;
             height: 100vh !important;
@@ -407,7 +413,6 @@
             cursor: pointer;
         }
 
-        /* Round Fullscreen Button in Main UI */
         .fullscreen-btn { 
             background-color: #2e86de; 
             width: 40px;
@@ -432,7 +437,6 @@
             color: #ffffff;
         }
 
-        /* Small Exit Button */
         .main-exit-btn { 
             background-color: #000; 
             color: #ff4757; 
@@ -510,15 +514,12 @@
 
         <!-- Navigation Controls -->
         <div class="nav-bar">
-            <!-- Back Button to Stop Player and Return to Home -->
             <button class="back-btn" onclick="stopPlayerAndGoBack()">❮ Back</button>
             <button class="nav-btn" onclick="changeChannel(-1)">CH ❮</button>
-            <!-- Round Fullscreen Icon Button -->
             <button class="fullscreen-btn" onclick="requestFullScreen()" title="Full Screen">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 15v6h-6M3 9V3h6M21 3l-7 7M3 21l7-7M21 21l-7-7M3 3l7 7"/></svg>
             </button>
             <button class="nav-btn" onclick="changeChannel(1)">CH ❯</button>
-            <!-- Small Exit App Button -->
             <button class="main-exit-btn" onclick="directExitApp()">✕ Exit</button>
         </div>
 
@@ -529,6 +530,20 @@
     </footer>
 
     <script>
+        // Inline Manifest Data URI සැറ്റപ്പ് ചെയ്യൽ (വേറെ ഫയൽ ആവശ്യമില്ലാതെ ആപ്പ് മോഡിൽ കിട്ടാൻ)
+        const manifestData = {
+            "name": "News TV",
+            "short_name": "NewsTV",
+            "start_url": window.location.href,
+            "display": "standalone",
+            "background_color": "#121212",
+            "theme_color": "#121212",
+            "icons": [{ "src": "icon.png", "sizes": "192x192", "type": "image/png" }]
+        };
+        const stringManifest = JSON.stringify(manifestData);
+        const blob = new Blob([stringManifest], {type: 'application/json'});
+        document.getElementById('dynamic-manifest').setAttribute('href', URL.createObjectURL(blob));
+
         const channels = [
             { id: 0, name: "24 News", liveVideoId: "1wECsnGZcfc", logo: "24.png" },
             { id: 1, name: "Asianet News", liveVideoId: "s0LLVQeMmtU", logo: "asianet.png" },
@@ -642,7 +657,6 @@
             iframe.src = `https://www.youtube.com/embed/${channel.liveVideoId}?autoplay=1&mute=${muteParam}&enablejsapi=1&playsinline=1&rel=0`;
         }
 
-        // Stop video playback and return to initial screen
         function stopPlayerAndGoBack() {
             const playerBox = document.getElementById('player-box');
             const iframe = document.getElementById('tv-player');
@@ -718,18 +732,18 @@
             document.body.classList.toggle('light-mode');
         }
 
+        /* എക്സിറ്റ് ബട്ടൺ അമർത്തുമ്പോൾ ക്രോം ബ്രൗസർ മെയിൻ പേജിലേക്ക് പോകാതെ ആപ്പ് ക്ലോസ് ആകാൻ */
         function directExitApp() {
             const iframe = document.getElementById('tv-player');
-            iframe.src = "";
-            
+            if (iframe) iframe.src = "";
+
             try {
-                window.open('', '_self');
                 window.close();
             } catch (e) {}
-            
+
             setTimeout(() => {
                 window.location.href = "about:blank";
-            }, 100);
+            }, 50);
         }
 
         function requestFullScreen() {
@@ -796,3 +810,4 @@
     </script>
 </body>
 </html>
+
