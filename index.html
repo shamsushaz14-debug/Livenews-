@@ -4,14 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     
-    <!-- PWA Meta Tags -->
+    <!-- PWA & Mobile Optimization -->
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#121212">
     
     <link rel="manifest" href="manifest.json">
-    
     <title>News TV</title>
     
     <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/2989/2989932.png" type="image/png">
@@ -114,7 +113,7 @@
 
         .video-wrapper {
             position: relative;
-            padding-bottom: 56.25%; /* 16:9 Ratio Default */
+            padding-bottom: 56.25%; /* 16:9 Ratio */
             height: 0;
             background: #000;
             width: 100%;
@@ -130,7 +129,7 @@
             border: 0;
         }
 
-        /* ഫുൾ സ്ക്രീൻ മോഡ് (16:9 ൽ മാത്രം) */
+        /* ഫുൾ സ്ക്രീൻ മോഡ് */
         .player-container.fullscreen-mode {
             position: fixed !important;
             top: 0 !important;
@@ -156,10 +155,9 @@
             max-height: 100vh !important;
             max-width: 177.78vh !important;
             padding-bottom: 0 !important;
-            transition: all 0.3s ease;
+            transition: transform 0.2s ease;
         }
 
-        /* സ്ട്രെച്ച് ബട്ടൺ അമർത്തിയാൽ മാത്രം 20:9 സ്ക്രീൻ നിറഞ്ഞു കാണാൻ */
         .player-container.fullscreen-mode.ratio-stretch .video-wrapper {
             width: 100vw !important;
             height: 100vh !important;
@@ -189,23 +187,16 @@
             display: block;
         }
 
-        .ch-center-left {
+        .ch-center-left, .ch-center-right {
             position: absolute;
             top: 50%;
-            left: 20px;
             transform: translateY(-50%);
             z-index: 2147483647;
             display: none;
         }
 
-        .ch-center-right {
-            position: absolute;
-            top: 50%;
-            right: 20px;
-            transform: translateY(-50%);
-            z-index: 2147483647;
-            display: none;
-        }
+        .ch-center-left { left: 20px; }
+        .ch-center-right { right: 20px; }
 
         .player-container.fullscreen-mode .ch-center-left,
         .player-container.fullscreen-mode .ch-center-right {
@@ -237,7 +228,6 @@
             justify-content: center;
             font-weight: bold;
             backdrop-filter: blur(4px);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
         }
 
         .fs-btn.mute-btn {
@@ -275,7 +265,6 @@
             font-weight: bold;
             cursor: pointer;
             backdrop-filter: blur(4px);
-            box-shadow: 0 3px 10px rgba(0,0,0,0.6);
         }
 
         .stretch-btn-round {
@@ -474,7 +463,7 @@
 
             <div class="bottom-right-group">
                 <button class="round-action-btn stretch-btn-round" id="side-stretch-btn" onclick="toggleStretchRatio()" title="Stretch 20:9">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 15v6h-6M3 9V3h6M21 21l-7-7M3 9V3h6M21 3l-7 7M3 21l7-7M21 21l-7-7M3 3l7 7"/></svg>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 15v6h-6M3 9V3h6M21 3l-7 7M3 21l7-7M21 21l-7-7M3 3l7 7"/></svg>
                 </button>
                 <button class="round-action-btn bottom-exit-btn" onclick="exitFullScreen()" title="Exit">Exit</button>
             </div>
@@ -617,30 +606,42 @@
 
         function playChannel(index) {
             currentIndex = index;
-            
             const channel = channels[currentIndex];
             const playerBox = document.getElementById('player-box');
             const iframe = document.getElementById('tv-player');
 
-            playerBox.style.display = "block";
-            playerBox.scrollIntoView({ behavior: 'smooth' });
+            if (playerBox.style.display !== "block") {
+                playerBox.style.display = "block";
+                playerBox.scrollIntoView({ behavior: 'smooth' });
+            }
 
             const muteParam = isMuted ? 1 : 0;
-            iframe.src = `https://www.youtube.com/embed/${channel.liveVideoId}?autoplay=1&mute=${muteParam}&enablejsapi=1&playsinline=1&rel=0`;
+            const targetSrc = `https://www.youtube.com/embed/${channel.liveVideoId}?autoplay=1&mute=${muteParam}&enablejsapi=1&playsinline=1&rel=0`;
+
+            if (iframe.src && iframe.src.includes('youtube.com/embed/')) {
+                iframe.contentWindow.postMessage(JSON.stringify({
+                    'event': 'command',
+                    'func': 'loadVideoById',
+                    'args': [channel.liveVideoId]
+                }), '*');
+            } else {
+                iframe.src = targetSrc;
+            }
         }
 
-        // തികച്ചും ഡയറക്റ്റ് ആയി ആപ്പിൽ നിന്ന് എക്സിറ്റ് ആകുന്ന പുതിയ ലോജിക്
+        // എക്സിറ്റ് ലോജിക് (about:blank വരാതിരിക്കാൻ)
         function handleSmartExit() {
             const playerBox = document.getElementById('player-box');
             const iframe = document.getElementById('tv-player');
 
-            // 1. ഫുൾ സ്ക്രീൻ ഉണ്ടെങ്കിൽ മാറ്റുക
+            // 1. ഫുൾ സ്ക്രീൻ ഉണ്ടെങ്കിൽ മാറ്റി സാധാരണ മോഡാക്കും
             if (document.fullscreenElement || document.webkitFullscreenElement) {
                 exitFullScreen();
+                return;
             }
 
-            // 2. വീഡിയോ ഓൺ ആണെങ്കിൽ ആദ്യ ക്ലിക്കിൽ വീഡിയോ മുഴുവനായി സ്റ്റോപ്പ് ചെയ്യും
-            if (currentIndex !== -1 || (playerBox && playerBox.style.display === "block")) {
+            // 2. വിഡിയോ ഓൺ ആണെങ്കിൽ സ്റ്റോപ്പ് ചെയ്ത് പ്ലെയർ ക്ലോസ് ആക്കും
+            if (playerBox && playerBox.style.display === "block") {
                 iframe.src = "";
                 playerBox.style.display = "none";
                 currentIndex = -1;
@@ -648,15 +649,8 @@
                 return;
             }
 
-            // 3. രണ്ടാമത്തെ ക്ലിക്കിൽ (വീഡിയോ ഇല്ലാത്തപ്പോൾ) ചാനലുകൾ ബാക്ക് അടിക്കാതെ നേരിട്ട് പുറത്തു കടക്കുന്നു
-            try {
-                window.close();
-            } catch (e) {}
-
-            // വിൻഡോ ക്ലോസ് ആകുന്നില്ലെങ്കിൽ (PWA/Standalone മോഡിൽ) ബ്രൗസർ ലൊക്കേഷൻ ക്ലിയർ ചെയ്ത് പുറത്തിറങ്ങാൻ
-            setTimeout(() => {
-                window.location.replace("about:blank");
-            }, 50);
+            // 3. പ്ലെയർ ക്ലോസ് ചെയ്ത ശേഷം എക്സിറ്റ് അമർത്തിയാൽ ആൻഡ്രോയിഡ് സിസ്റ്റം ബാക്ക് വഴി ആപ്പ് അടയും
+            window.history.back();
         }
 
         function changeChannel(direction) {
