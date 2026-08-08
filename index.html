@@ -514,7 +514,7 @@
             { id: 5, name: "Reporter TV", liveVideoId: "nObUcHKZEGY", logo: "reporter.png" },
             { id: 6, name: "BIG TV", liveVideoId: "hI9gXKOIGmc", logo: "bigtv.png" },
             { id: 7, name: "News Malayalam", liveVideoId: "P9MITjM250c", logo: "newsmalayalam.png" },
-            { id: 8, name: "News18 Kerala", liveVideoId: "ke-BZTwtxWk", logo: "news18.png" }
+            { id: 8, name: "News18 Kerala", liveVideoId: "ke-BZTwtxWk", channelId: "UC-mMi78WJST4N5o8_i1FoXw", logo: "news18.png" }
         ];
 
         let currentIndex = -1;
@@ -604,7 +604,30 @@
             }
         }
 
-        function playChannel(index) {
+        // ചാനൽ ഐഡി അനുസരിച്ച് ലേറ്റസ്റ്റ് ലൈവ് സ്ട്രീം കണ്ടെത്താനുള്ള ഫങ്ഷൻ
+        async function fetchLatestLiveId(channel) {
+            if (!channel.channelId) return channel.liveVideoId;
+
+            try {
+                // public YouTube oEmbed/Proxy വഴി ലൈവ് വിഡിയോ ഐഡി കണ്ടെത്തുന്നു
+                const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://www.youtube.com/channel/${channel.channelId}/live`)}`;
+                const response = await fetch(proxyUrl);
+                const htmlText = await response.text();
+
+                // HTML പേജിൽ നിന്ന് കറന്റ് ലൈവ് വിഡിയോ ഐഡി കണ്ടുപിടിക്കുന്നു
+                const match = htmlText.match(/"videoId":"([a-zA-Z0-9_-]{11})"/);
+                if (match && match[1]) {
+                    channel.liveVideoId = match[1]; // കണ്ടെത്തിയ പുതിയ ഐഡി സേവ് ചെയ്യുന്നു
+                    return match[1];
+                }
+            } catch (e) {
+                console.log("Auto fetch failed, playing fallback video ID:", e);
+            }
+
+            return channel.liveVideoId; // ഫെച്ചിങ് പരാജയപ്പെട്ടാൽ നിലവിലുള്ള ഡിഫോൾട്ട് ഐഡി ഉപയോഗിക്കും
+        }
+
+        async function playChannel(index) {
             currentIndex = index;
             const channel = channels[currentIndex];
             const playerBox = document.getElementById('player-box');
@@ -615,32 +638,32 @@
                 playerBox.scrollIntoView({ behavior: 'smooth' });
             }
 
+            // ചാനലിന് channelId കൊടുത്തിട്ടുണ്ടെങ്കിൽ ലേറ്റസ്റ്റ് ലൈവ് ഐഡി എടുക്കും
+            const activeVideoId = await fetchLatestLiveId(channel);
+
             const muteParam = isMuted ? 1 : 0;
-            const targetSrc = `https://www.youtube.com/embed/${channel.liveVideoId}?autoplay=1&mute=${muteParam}&enablejsapi=1&playsinline=1&rel=0`;
+            const targetSrc = `https://www.youtube.com/embed/${activeVideoId}?autoplay=1&mute=${muteParam}&enablejsapi=1&playsinline=1&rel=0`;
 
             if (iframe.src && iframe.src.includes('youtube.com/embed/')) {
                 iframe.contentWindow.postMessage(JSON.stringify({
                     'event': 'command',
                     'func': 'loadVideoById',
-                    'args': [channel.liveVideoId]
+                    'args': [activeVideoId]
                 }), '*');
             } else {
                 iframe.src = targetSrc;
             }
         }
 
-        // എക്സിറ്റ് ലോജിക് (about:blank വരാതിരിക്കാൻ)
         function handleSmartExit() {
             const playerBox = document.getElementById('player-box');
             const iframe = document.getElementById('tv-player');
 
-            // 1. ഫുൾ സ്ക്രീൻ ഉണ്ടെങ്കിൽ മാറ്റി സാധാരണ മോഡാക്കും
             if (document.fullscreenElement || document.webkitFullscreenElement) {
                 exitFullScreen();
                 return;
             }
 
-            // 2. വിഡിയോ ഓൺ ആണെങ്കിൽ സ്റ്റോപ്പ് ചെയ്ത് പ്ലെയർ ക്ലോസ് ആക്കും
             if (playerBox && playerBox.style.display === "block") {
                 iframe.src = "";
                 playerBox.style.display = "none";
@@ -649,7 +672,6 @@
                 return;
             }
 
-            // 3. പ്ലെയർ ക്ലോസ് ചെയ്ത ശേഷം എക്സിറ്റ് അമർത്തിയാൽ ആൻഡ്രോയിഡ് സിസ്റ്റം ബാക്ക് വഴി ആപ്പ് അടയും
             window.history.back();
         }
 
