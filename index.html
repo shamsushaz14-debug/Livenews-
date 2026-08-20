@@ -485,6 +485,47 @@
             flex: 1;
         }
 
+        /* Exit Popup Styles */
+        .popup-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 9999999;
+            align-items: center; 
+            justify-content: center;
+        }
+        
+        .popup-box {
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: 20px;
+            text-align: center;
+            border: 1px solid var(--border-color);
+            width: 80%;
+            max-width: 300px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+        
+        .popup-btn-group { 
+            display: flex; 
+            gap: 10px; 
+            margin-top: 20px; 
+        }
+        
+        .popup-btn { 
+            flex: 1; 
+            padding: 10px; 
+            border-radius: 15px; 
+            border: none; 
+            font-weight: bold; 
+            cursor: pointer; 
+            font-size: 0.9rem;
+        }
+        
+        .btn-yes { background-color: #e85f54; color: white; }
+        .btn-no { background-color: var(--accent-teal); color: #000; }
+
         footer {
             margin-top: auto;
             padding: 15px;
@@ -495,6 +536,17 @@
     </style>
 </head>
 <body>
+
+    <!-- Exit Confirmation Popup -->
+    <div id="exit-popup" class="popup-overlay">
+        <div class="popup-box">
+            <h3 style="color:var(--text-color); font-size: 1.1rem;">ആപ്പിൽ നിന്നും പുറത്തുപോകണോ?</h3>
+            <div class="popup-btn-group">
+                <button class="popup-btn btn-no" onclick="hideExitPopup()">ഇല്ല</button>
+                <button class="popup-btn btn-yes" onclick="confirmExit()">അതെ</button>
+            </div>
+        </div>
+    </div>
 
     <header>
         <div class="header-left">
@@ -583,7 +635,7 @@
             <button class="nav-btn" onclick="changeChannel(-1)">❮ Prev</button>
             <button class="fullscreen-btn" onclick="requestFullScreen()" title="Full Screen">⛶ Full Screen</button>
             <button class="nav-btn" onclick="changeChannel(1)">Next ❯</button>
-            <button class="smart-exit-btn" onclick="handleSmartExit()">✕ Exit</button>
+            <button class="smart-exit-btn" onclick="showExitPopup()">✕ Exit</button>
         </div>
 
     </div>
@@ -794,22 +846,30 @@
             }
         }
 
-        function handleSmartExit() {
+        // Exit Popup Controls
+        function showExitPopup() {
+            document.getElementById('exit-popup').style.display = 'flex';
+        }
+
+        function hideExitPopup() {
+            document.getElementById('exit-popup').style.display = 'none';
+        }
+
+        function confirmExit() {
             const playerBox = document.getElementById('player-box');
             const iframe = document.getElementById('tv-player');
-
-            if (document.fullscreenElement || document.webkitFullscreenElement) {
-                exitFullScreen();
-                return;
-            }
 
             if (playerBox && playerBox.style.display === "block") {
                 iframe.src = "";
                 playerBox.style.display = "none";
                 currentIndex = -1;
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-                return;
             }
+
+            hideExitPopup();
+
+            try {
+                window.close();
+            } catch (e) {}
 
             window.history.back();
         }
@@ -938,20 +998,17 @@
         let touchEndX = 0;
         let touchEndY = 0;
 
-        const swipeThreshold = 50; // സ്വൈപ്പ് തിരിച്ചറിയാനുള്ള മിനിമം ദൂരം (pixels)
+        const swipeThreshold = 50;
 
         function handleGesture() {
             const diffX = touchEndX - touchStartX;
             const diffY = touchEndY - touchStartY;
 
-            // ഹൊറിസോണ്ടൽ സ്വൈപ്പ് മാത്രമായി ബോധ്യപ്പെടാൻ (Vertical Scroll അല്ലെന്ന് ഉറപ്പാക്കാൻ)
             if (Math.abs(diffX) > Math.abs(diffY)) {
                 if (Math.abs(diffX) > swipeThreshold) {
                     if (diffX < 0) {
-                        // വലത്തുനിന്ന് ഇടത്തോട്ട് സ്വൈപ്പ് ചെയ്താൽ -> Next Channel
                         changeChannel(1);
                     } else {
-                        // ഇടത്തുനിന്ന് വലത്തോട്ട് സ്വൈപ്പ് ചെയ്താൽ -> Previous Channel
                         changeChannel(-1);
                     }
                 }
