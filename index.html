@@ -214,7 +214,6 @@
             position: relative;
             box-shadow: 0 4px 15px rgba(0,0,0,0.8);
             border: 1px solid var(--border-color);
-            touch-action: pan-y;
         }
 
         .video-wrapper {
@@ -232,22 +231,6 @@
             width: 100%;
             height: 100%;
             border: 0;
-        }
-
-        /* Fullscreen Overlay for Swipe Gestures */
-        .swipe-overlay {
-            display: none;
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 2147483646;
-            background: transparent;
-        }
-
-        .player-container.fullscreen-mode .swipe-overlay {
-            display: block;
         }
 
         .player-container.fullscreen-mode {
@@ -285,6 +268,22 @@
             max-height: 100vh !important;
             max-width: 100vw !important;
             transform: translate(-50%, -50%) scale(1.25) !important;
+        }
+
+        /* Swipe Overlay - പുതിയ ഫീച്ചർ */
+        .swipe-overlay {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2147483646; /* മറ്റ് ഫുൾ സ്ക്രീൻ ബട്ടണുകൾക്ക് (2147483647) താഴെയാക്കി */
+            background: transparent;
+        }
+
+        .player-container.fullscreen-mode .swipe-overlay {
+            display: block;
         }
 
         .ch-center-left, .ch-center-right {
@@ -485,47 +484,6 @@
             flex: 1;
         }
 
-        /* Exit Confirmation Popup Styles */
-        .popup-overlay {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            z-index: 9999999;
-            align-items: center; 
-            justify-content: center;
-        }
-        
-        .popup-box {
-            background: var(--card-bg);
-            padding: 25px;
-            border-radius: 20px;
-            text-align: center;
-            border: 1px solid var(--border-color);
-            width: 80%;
-            max-width: 300px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-        }
-        
-        .popup-btn-group { 
-            display: flex; 
-            gap: 10px; 
-            margin-top: 20px; 
-        }
-        
-        .popup-btn { 
-            flex: 1; 
-            padding: 10px; 
-            border-radius: 15px; 
-            border: none; 
-            font-weight: bold; 
-            cursor: pointer; 
-            font-size: 0.9rem;
-        }
-        
-        .btn-yes { background-color: #e85f54; color: white; }
-        .btn-no { background-color: var(--accent-teal); color: #000; }
-
         footer {
             margin-top: auto;
             padding: 15px;
@@ -536,17 +494,6 @@
     </style>
 </head>
 <body>
-
-    <!-- Exit Confirmation Popup -->
-    <div id="exit-popup" class="popup-overlay">
-        <div class="popup-box">
-            <h3 style="color:var(--text-color); font-size: 1.1rem;">ആപ്പിൽ നിന്നും പുറത്തുപോകണോ?</h3>
-            <div class="popup-btn-group">
-                <button class="popup-btn btn-no" onclick="hideExitPopup()">ഇല്ല</button>
-                <button class="popup-btn btn-yes" onclick="confirmExit()">അതെ</button>
-            </div>
-        </div>
-    </div>
 
     <header>
         <div class="header-left">
@@ -581,9 +528,6 @@
         <!-- Player Box -->
         <div class="player-container" id="player-box">
             
-            <!-- Transparent Overlay for Swipe Detection in Fullscreen -->
-            <div class="swipe-overlay" id="swipe-overlay"></div>
-
             <div class="ch-center-left">
                 <button class="fs-btn" onclick="changeChannel(-1)" title="Previous Channel">❮ Prev</button>
             </div>
@@ -614,6 +558,9 @@
                     loading="eager">
                 </iframe>
             </div>
+
+            <!-- ഫുൾ സ്ക്രീനിൽ ടച്ച് മനസ്സിലാക്കാനുള്ള ഇൻവിസിബിൾ ലെയർ -->
+            <div class="swipe-overlay" id="swipe-overlay"></div>
         </div>
 
         <!-- Favorites Section -->
@@ -635,7 +582,7 @@
             <button class="nav-btn" onclick="changeChannel(-1)">❮ Prev</button>
             <button class="fullscreen-btn" onclick="requestFullScreen()" title="Full Screen">⛶ Full Screen</button>
             <button class="nav-btn" onclick="changeChannel(1)">Next ❯</button>
-            <button class="smart-exit-btn" onclick="showExitPopup()">✕ Exit</button>
+            <button class="smart-exit-btn" onclick="handleSmartExit()">✕ Exit</button>
         </div>
 
     </div>
@@ -659,7 +606,7 @@
             { id: 4, name: "MediaOne", liveVideoId: "-8d8-c0yvyU", handle: "@MediaOneTVLive", channelId: "UCrNSx22lI3bKx7O2mQpWv7w", logo: "mediaone.png" },
             { id: 5, name: "Reporter TV", liveVideoId: "nObUcHKZEGY", handle: "@ReporterLive", channelId: "UC00Svh_DqMpx9YjS4rT0Tew", logo: "reporter.png" },
             { id: 6, name: "BIG TV", liveVideoId: "Az5I714Nk4M", handle: "@BIGTVMALAYALAM", channelId: "UC3y128543787", logo: "bigtv.png" },
-            { id: 7, name: "News Malayalam", liveVideoId: "TiOabM_wCOU", handle: "@NewsMalayalam24x7", channelId: "", logo: "newsmalayalam.png" },
+            { id: 7, name: "News Malayalam", liveVideoId: "K91rifR3BA0", handle: "@NewsMalayalam24x7", channelId: "", logo: "newsmalayalam.png" },
             { id: 8, name: "News18 Kerala", liveVideoId: "ke-BZTwtxWk", handle: "@News18Kerala", channelId: "UC-mMi78WJST4N5o8_i1FoXw", logo: "news18.png" }
         ];
 
@@ -668,7 +615,35 @@
         let isStretchMode = false;
         let favorites = JSON.parse(localStorage.getItem('news_tv_favs')) || [];
         let deferredPrompt = null;
-        let isPopupOpen = false;
+        let wakeLock = null;
+
+        // സ്ക്രീൻ ഓഫ് ആകാതിരിക്കാനുള്ള വേക്ക് ലോക്ക് ഫംഗ്ഷൻ
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator && !wakeLock) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    wakeLock.addEventListener('release', () => {
+                        wakeLock = null;
+                    });
+                }
+            } catch (err) {}
+        }
+
+        async function releaseWakeLock() {
+            if (wakeLock !== null) {
+                try {
+                    await wakeLock.release();
+                } catch (e) {}
+                wakeLock = null;
+            }
+        }
+
+        // ടാബ് മാറുമ്പോഴോ ബാക്ക്ഗ്രൗണ്ടിൽ പോകുമ്പോഴോ ഉള്ള കൈകാര്യം ചെയ്യൽ
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && currentIndex !== -1) {
+                requestWakeLock();
+            }
+        });
 
         const svgUnmuted = `<path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>`;
         const svgMuted = `<path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>`;
@@ -752,6 +727,7 @@
             if (index !== -1) playChannel(index);
         }
 
+        /* ലൈഫ്-ടൈം ലൈവ് ഓട്ടോ ലോക്ക് (Auto-Live Fetching Mechanism) */
         async function playChannel(index) {
             currentIndex = index;
             const channel = channels[currentIndex];
@@ -762,13 +738,17 @@
                 playerBox.style.display = "block";
             }
 
+            // പ്ലേ ചെയ്യുമ്പോൾ സ്ക്രീൻ ഓഫ് ആകാതിരിക്കാൻ വേക്ക് ലോക്ക് ഓൺ ചെയ്യുന്നു
+            requestWakeLock();
+
             const muteParam = isMuted ? 1 : 0;
 
-            if (channel.id === 6) {
+            if (channel.id === 6 || channel.id === 7) {
                 iframe.src = `https://www.youtube-nocookie.com/embed/${channel.liveVideoId}?autoplay=1&mute=${muteParam}&enablejsapi=1&playsinline=1&rel=0`;
                 return;
             }
 
+            //News18 ഓട്ടോ ഐഡി ഫെച്ച്
             if (channel.id === 8) {
                 try {
                     const response = await fetch('https://news18-live-fetcher.shamsushaz14.workers.dev');
@@ -840,59 +820,26 @@
             }
         }
 
-        /* ------------------------------------------------------------------
-           Exit Confirmation Popup & Hardware Back Button Handling
-           ------------------------------------------------------------------ */
-        function pushDummyState() {
-            history.pushState({ page: 'home' }, '', window.location.href);
-        }
-
-        function showExitPopup() {
-            isPopupOpen = true;
-            document.getElementById('exit-popup').style.display = 'flex';
-        }
-
-        function hideExitPopup() {
-            isPopupOpen = false;
-            document.getElementById('exit-popup').style.display = 'none';
-            pushDummyState(); // ബാക്ക് പോപ്പ് അപ്പ് ക്ലോസ് ചെയ്യുമ്പോൾ ബാക്ക് സ്റ്റാക്ക് നിലനിർത്താൻ
-        }
-
-        function confirmExit() {
+        function handleSmartExit() {
             const playerBox = document.getElementById('player-box');
             const iframe = document.getElementById('tv-player');
+
+            if (document.fullscreenElement || document.webkitFullscreenElement) {
+                exitFullScreen();
+                return;
+            }
 
             if (playerBox && playerBox.style.display === "block") {
                 iframe.src = "";
                 playerBox.style.display = "none";
                 currentIndex = -1;
-            }
-
-            isPopupOpen = false;
-            document.getElementById('exit-popup').style.display = 'none';
-
-            // ആപ്പിൽ നിന്നും പുറത്തുപോകുന്നു
-            window.history.go(-2);
-        }
-
-        // മൊബൈൽ ബാക്ക് ബട്ടൺ ഞെക്കുമ്പോൾ പോപ്പ്-അപ്പ് കാണിക്കാൻ
-        window.addEventListener('popstate', function (event) {
-            const playerBox = document.getElementById('player-box');
-
-            // 1. വീഡിയോ ഫുൾസ്‌ക്രീൻ ആണെങ്കിൽ ആദ്യം ഫുൾസ്‌ക്രീൻ ഒഴിവാക്കുന്നു
-            if (playerBox && playerBox.classList.contains('fullscreen-mode')) {
-                exitFullScreen();
-                pushDummyState();
+                releaseWakeLock(); // പ്ലെയർ ക്ലോസ് ചെയ്യുമ്പോൾ വേക്ക് ലോക്ക് റിലീസ് ചെയ്യുന്നു
+                window.scrollTo({ top: 0, behavior: 'smooth' });
                 return;
             }
 
-            // 2. എക്സിറ്റ് പോപ്പ്-അപ്പ് കാണിക്കുന്നു
-            if (!isPopupOpen) {
-                showExitPopup();
-            } else {
-                hideExitPopup();
-            }
-        });
+            window.history.back();
+        }
 
         function changeChannel(direction) {
             if (currentIndex === -1) {
@@ -1010,48 +957,49 @@
             } catch (e) {}
         }
 
-        /* ------------------------------------------------------------------
-           Swipe Navigation Code for Fullscreen / Touch Gestures
-           ------------------------------------------------------------------ */
+        // Swipe Gesture Variables and Functions
         let touchStartX = 0;
         let touchStartY = 0;
         let touchEndX = 0;
         let touchEndY = 0;
-
-        const swipeThreshold = 50;
+        const swipeThreshold = 50; 
 
         function handleGesture() {
             const diffX = touchEndX - touchStartX;
             const diffY = touchEndY - touchStartY;
 
+            // മുകളിലേക്കും താഴേക്കുമുള്ള സ്വൈപ്പിനെക്കാൾ കൂടുതൽ വശങ്ങളിലേക്കാണെങ്കിൽ മാത്രം പരിഗണിക്കുക
             if (Math.abs(diffX) > Math.abs(diffY)) {
                 if (Math.abs(diffX) > swipeThreshold) {
                     if (diffX < 0) {
+                        // ഇടത്തേക്ക് സ്വൈപ്പ് ചെയ്താൽ (അടുത്ത ചാനൽ)
                         changeChannel(1);
                     } else {
+                        // വലത്തേക്ക് സ്വൈപ്പ് ചെയ്താൽ (മുൻപത്തെ ചാനൽ)
                         changeChannel(-1);
                     }
                 }
             }
         }
 
-        const playerBoxElem = document.getElementById('player-box');
-
-        playerBoxElem.addEventListener('touchstart', (e) => {
-            touchStartX = e.changedTouches[0].screenX;
-            touchStartY = e.changedTouches[0].screenY;
-        }, { passive: true });
-
-        playerBoxElem.addEventListener('touchend', (e) => {
-            touchEndX = e.changedTouches[0].screenX;
-            touchEndY = e.changedTouches[0].screenY;
-            handleGesture();
-        }, { passive: true });
-
         window.onload = function() {
             buildGrid();
             playChannel(0);
-            pushDummyState(); // ബാക്ക് ബട്ടൺ ഡിറ്റക്ഷനുവേണ്ടി ഹിസ്റ്ററി സ്റ്റേറ്റ് സജ്ജീകരിക്കുന്നു
+
+            // Swipe Overlay Event Listeners
+            const swipeOverlay = document.getElementById('swipe-overlay');
+            if (swipeOverlay) {
+                swipeOverlay.addEventListener('touchstart', (e) => {
+                    touchStartX = e.changedTouches[0].screenX;
+                    touchStartY = e.changedTouches[0].screenY;
+                }, { passive: true });
+
+                swipeOverlay.addEventListener('touchend', (e) => {
+                    touchEndX = e.changedTouches[0].screenX;
+                    touchEndY = e.changedTouches[0].screenY;
+                    handleGesture();
+                }, { passive: true });
+            }
         };
     </script>
 </body>
