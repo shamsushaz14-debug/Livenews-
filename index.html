@@ -270,7 +270,7 @@
             transform: translate(-50%, -50%) scale(1.25) !important;
         }
 
-        /* Swipe Overlay - പുതിയ ഫീച്ചർ */
+        /* Swipe Overlay */
         .swipe-overlay {
             display: none;
             position: absolute;
@@ -278,7 +278,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            z-index: 2147483646; /* മറ്റ് ഫുൾ സ്ക്രീൻ ബട്ടണുകൾക്ക് (2147483647) താഴെയാക്കി */
+            z-index: 2147483646; 
             background: transparent;
         }
 
@@ -330,6 +330,23 @@
             backdrop-filter: blur(4px);
         }
 
+        /* Arrow buttons for fullscreen */
+        .fs-btn.arrow-btn {
+            width: 48px;
+            height: 48px;
+            padding: 0;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid rgba(255, 255, 255, 0.75); /* കൂടുതൽ വ്യക്തമായ ബോർഡർ */
+            background-color: rgba(0, 0, 0, 0.6);
+        }
+        .fs-btn.arrow-btn svg {
+            width: 24px;
+            height: 24px;
+        }
+
         .fs-btn.mute-btn {
             background-color: var(--accent-teal);
             border: none;
@@ -367,7 +384,7 @@
         .fs-channel-list {
             display: none;
             position: absolute;
-            bottom: 80px; 
+            bottom: 12px; 
             left: 50%;
             transform: translateX(-50%);
             gap: 12px;
@@ -375,7 +392,7 @@
             opacity: 0;
             pointer-events: none;
             transition: opacity 0.3s ease;
-            max-width: 90vw;
+            max-width: calc(100vw - 220px); 
             overflow-x: auto;
             padding: 10px 15px;
             background: rgba(0, 0, 0, 0.6);
@@ -580,11 +597,17 @@
         <div class="player-container" id="player-box">
             
             <div class="ch-center-left">
-                <button class="fs-btn" onclick="changeChannel(-1)" title="Previous Channel">❮ Prev</button>
+                <!-- Double Arrow Left -->
+                <button class="fs-btn arrow-btn" onclick="changeChannel(-1)" title="Previous Channel">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 17L6 12L11 7M18 17L13 12L18 7"/></svg>
+                </button>
             </div>
 
             <div class="ch-center-right">
-                <button class="fs-btn" onclick="changeChannel(1)" title="Next Channel">Next ❯</button>
+                <!-- Double Arrow Right -->
+                <button class="fs-btn arrow-btn" onclick="changeChannel(1)" title="Next Channel">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 17L18 12L13 7M6 17L11 12L6 7"/></svg>
+                </button>
             </div>
 
             <div class="bottom-left-controls">
