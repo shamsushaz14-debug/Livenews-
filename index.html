@@ -363,6 +363,57 @@
         .stretch-btn-round svg { width: 20px; height: 20px; stroke: #000; }
         .bottom-exit-btn { background-color: #e85f54; color: #ffffff; }
 
+        /* Fullscreen Channel List */
+        .fs-channel-list {
+            display: none;
+            position: absolute;
+            bottom: 80px; 
+            left: 50%;
+            transform: translateX(-50%);
+            gap: 12px;
+            z-index: 2147483647;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            max-width: 90vw;
+            overflow-x: auto;
+            padding: 10px 15px;
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 30px;
+            backdrop-filter: blur(5px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+
+        .player-container.fullscreen-mode .fs-channel-list {
+            display: flex;
+        }
+
+        .fs-channel-list.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .fs-channel-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            cursor: pointer;
+            border: 2px solid transparent;
+            flex-shrink: 0;
+            background-color: #ffffff;
+            padding: 2px;
+            transition: transform 0.2s;
+        }
+
+        .fs-channel-icon:active {
+            transform: scale(0.9);
+        }
+
+        .fs-channel-icon.active-ch {
+            border-color: #e85f54;
+        }
+
         .section-title {
             font-size: 1rem;
             margin: 15px 0 10px 0;
@@ -561,6 +612,9 @@
 
             <!-- ഫുൾ സ്ക്രീനിൽ ടച്ച് മനസ്സിലാക്കാനുള്ള ഇൻവിസിബിൾ ലെയർ -->
             <div class="swipe-overlay" id="swipe-overlay"></div>
+            
+            <!-- ഫുൾ സ്ക്രീനിലെ റൗണ്ട് ചാനൽ ഐക്കണുകൾ -->
+            <div class="fs-channel-list" id="fs-channel-list"></div>
         </div>
 
         <!-- Favorites Section -->
@@ -616,6 +670,7 @@
         let favorites = JSON.parse(localStorage.getItem('news_tv_favs')) || [];
         let deferredPrompt = null;
         let wakeLock = null;
+        let fsChannelTimer;
 
         // സ്ക്രീൻ ഓഫ് ആകാതിരിക്കാനുള്ള വേക്ക് ലോക്ക് ഫംഗ്ഷൻ
         async function requestWakeLock() {
@@ -694,6 +749,45 @@
             favGrid.innerHTML = favHTML;
             favSection.style.display = favCount > 0 ? "block" : "none";
         }
+        
+        function buildFsChannelList() {
+            const fsList = document.getElementById('fs-channel-list');
+            if (!fsList) return;
+            let html = '';
+            channels.forEach(ch => {
+                html += `<img src="${ch.logo}" class="fs-channel-icon" id="fs-icon-${ch.id}" onclick="fsPlayChannel(${ch.id})" alt="${ch.name}" onerror="this.onerror=null; this.src='https://via.placeholder.com/40/1e1e1e/ffffff?text=${ch.name.charAt(0)}';">`;
+            });
+            fsList.innerHTML = html;
+        }
+
+        function fsPlayChannel(id) {
+            playChannelById(id);
+            showFsChannels(); 
+        }
+
+        function updateFsActiveIcon() {
+            document.querySelectorAll('.fs-channel-icon').forEach(icon => {
+                icon.classList.remove('active-ch');
+            });
+            if (currentIndex !== -1) {
+                const activeId = channels[currentIndex].id;
+                const activeIcon = document.getElementById(`fs-icon-${activeId}`);
+                if (activeIcon) activeIcon.classList.add('active-ch');
+            }
+        }
+
+        function showFsChannels() {
+            const fsList = document.getElementById('fs-channel-list');
+            if (!fsList) return;
+            
+            updateFsActiveIcon();
+            fsList.classList.add('show');
+            
+            clearTimeout(fsChannelTimer);
+            fsChannelTimer = setTimeout(() => {
+                fsList.classList.remove('show');
+            }, 3000);
+        }
 
         function createChannelCardHTML(ch, isFav) {
             return `
@@ -740,6 +834,7 @@
 
             // പ്ലേ ചെയ്യുമ്പോൾ സ്ക്രീൻ ഓഫ് ആകാതിരിക്കാൻ വേക്ക് ലോക്ക് ഓൺ ചെയ്യുന്നു
             requestWakeLock();
+            updateFsActiveIcon();
 
             const muteParam = isMuted ? 1 : 0;
 
@@ -968,6 +1063,12 @@
             const diffX = touchEndX - touchStartX;
             const diffY = touchEndY - touchStartY;
 
+            // സ്ക്രീനിൽ തൊടുമ്പോൾ (Tap Detection) ചാനലുകൾ ഷോ ചെയ്യാൻ
+            if (Math.abs(diffX) < 10 && Math.abs(diffY) < 10) {
+                showFsChannels();
+                return;
+            }
+
             // മുകളിലേക്കും താഴേക്കുമുള്ള സ്വൈപ്പിനെക്കാൾ കൂടുതൽ വശങ്ങളിലേക്കാണെങ്കിൽ മാത്രം പരിഗണിക്കുക
             if (Math.abs(diffX) > Math.abs(diffY)) {
                 if (Math.abs(diffX) > swipeThreshold) {
@@ -984,6 +1085,7 @@
 
         window.onload = function() {
             buildGrid();
+            buildFsChannelList();
             playChannel(0);
 
             // Swipe Overlay Event Listeners
