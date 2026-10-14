@@ -545,6 +545,25 @@
 
         .tv-section-icon { width: 24px; height: 24px; fill: var(--text-color); }
 
+        .live-clock {
+            margin-left: auto;
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--text-color);
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: baseline;
+            gap: 3px;
+            transition: opacity 0.3s ease-in-out;
+        }
+
+        .ampm-transparent {
+            background: transparent;
+            color: var(--subtext-color);
+            font-size: 0.75em;
+            font-weight: 600;
+        }
+
         .grid-container {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -790,7 +809,8 @@
             <svg class="tv-section-icon" viewBox="0 0 24 24">
                 <path d="M2 3h20v13H2V3zm2 2v9h16V5H4zm5 12h6v2H9v-2zm-2 2h10v1.5H7V19z"/>
             </svg>
-            എല്ലാ ചാനലുകളും (All Channels)
+            <span>All Channels</span>
+            <span id="live-clock" class="live-clock"></span>
         </div>
         <div class="grid-container" id="grid-container"></div>
 
@@ -843,6 +863,38 @@
         let fsChannelTimer;
         
         let hasShownSwipeHint = false; 
+        let showTimeMode = true;
+
+        function renderClockContent() {
+            const clockEl = document.getElementById('live-clock');
+            if (!clockEl) return;
+            const now = new Date();
+            
+            if (showTimeMode) {
+                let hours = now.getHours();
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const ampm = hours >= 12 ? 'PM' : 'AM';
+                hours = hours % 12;
+                hours = hours ? hours : 12;
+                const strHours = String(hours).padStart(2, '0');
+                clockEl.innerHTML = `${strHours}:${minutes} <span class="ampm-transparent">${ampm}</span>`;
+            } else {
+                const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                const dayName = days[now.getDay()];
+                clockEl.innerHTML = `<span class="ampm-transparent" style="font-size: 0.9rem;">${dayName}</span>`;
+            }
+        }
+
+        function toggleClockBlink() {
+            const clockEl = document.getElementById('live-clock');
+            if (!clockEl) return;
+            clockEl.style.opacity = '0';
+            setTimeout(() => {
+                showTimeMode = !showTimeMode;
+                renderClockContent();
+                clockEl.style.opacity = '1';
+            }, 300);
+        }
 
         async function requestWakeLock() {
             try {
@@ -1284,6 +1336,9 @@
         window.onload = function() {
             document.getElementById('mute-svg-icon').innerHTML = svgMuted;
             
+            renderClockContent();
+            setInterval(toggleClockBlink, 3000);
+
             buildGrid();
             buildFsChannelList();
             playChannel(0);
