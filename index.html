@@ -23,8 +23,9 @@
             --text-color: #ffffff;
             --subtext-color: #aaa;
             --header-bg: #1e1e1e;
-            --border-color: #e85f54;
-            --primary-coral: #e85f54;
+            --border-color: #069494;
+            --primary-teal: #069494;
+            --live-red: #e85f54;
         }
 
         .light-mode {
@@ -33,7 +34,7 @@
             --text-color: #2f3640;
             --subtext-color: #718093;
             --header-bg: #ffffff;
-            --border-color: #e85f54;
+            --border-color: #069494;
         }
 
         * {
@@ -92,7 +93,7 @@
 
         .live-badge {
             background-color: transparent;
-            color: var(--primary-coral);
+            color: var(--live-red);
             font-size: 0.65rem;
             font-weight: 800;
             padding: 2px 8px;
@@ -113,14 +114,14 @@
 
         .header-title h1 {
             font-size: 1.35rem;
-            color: #e85f54;
+            color: var(--primary-teal);
             margin: 0;
             line-height: 1.1;
         }
 
         .header-title h1 .tv-text {
             font-size: 0.85em;
-            color: #e85f54;
+            color: var(--primary-teal);
         }
 
         .scroll-container {
@@ -150,7 +151,7 @@
 
         .theme-toggle-btn {
             background: rgba(255, 255, 255, 0.05);
-            border: 1.5px solid #e85f54;
+            border: 1.5px solid var(--primary-teal);
             color: var(--text-color);
             width: 32px;
             height: 32px;
@@ -164,10 +165,10 @@
             padding: 0;
         }
 
-        .theme-toggle-btn svg { fill: #e85f54; width: 16px; height: 16px; }
+        .theme-toggle-btn svg { fill: var(--text-color); width: 16px; height: 16px; }
 
         .teal-refresh-btn {
-            border: 1.5px solid var(--subtext-color);
+            border: 1.5px solid var(--primary-teal);
             background: transparent;
             width: 32px;
             height: 32px;
@@ -216,7 +217,7 @@
             background: #000;
             position: relative;
             box-shadow: 0 4px 15px rgba(0,0,0,0.8);
-            border: 1px solid var(--border-color);
+            border: 1.5px solid var(--border-color);
         }
 
         .video-wrapper {
@@ -474,7 +475,7 @@
         }
         .stretch-btn-round svg { width: 18px; height: 18px; stroke: #ffffff; }
         
-        .bottom-exit-btn { background-color: #e85f54; color: #ffffff; }
+        .bottom-exit-btn { background-color: var(--primary-teal); color: #ffffff; }
 
         /* Fullscreen Channel List */
         .fs-channel-list {
@@ -520,7 +521,7 @@
         }
 
         .fs-channel-icon:active { transform: scale(0.9); }
-        .fs-channel-icon.active-ch { border-color: #e85f54; }
+        .fs-channel-icon.active-ch { border-color: var(--primary-teal); }
 
         .section-title {
             font-size: 1rem;
@@ -548,7 +549,7 @@
             align-items: center;
             justify-content: center;
             padding: 12px 6px;
-            border: 1px solid var(--border-color);
+            border: 1.5px solid var(--border-color);
             cursor: pointer;
             position: relative;
         }
@@ -574,7 +575,7 @@
             opacity: 0.35;
         }
 
-        .fav-star.active svg { fill: #e85f54; stroke: #e85f54; opacity: 1; }
+        .fav-star.active svg { fill: var(--primary-teal); stroke: var(--primary-teal); opacity: 1; }
 
         .channel-logo {
             width: 44px;
@@ -584,7 +585,7 @@
             margin-bottom: 6px;
             background-color: #ffffff;
             padding: 2px;
-            border: 1px solid var(--border-color);
+            border: 1.5px solid var(--border-color);
         }
 
         .card span {
@@ -605,11 +606,11 @@
             gap: 8px;
             background-color: var(--card-bg);
             border-radius: 18px;
-            border: 1px solid var(--border-color);
+            border: 1.5px solid var(--border-color);
         }
 
         .nav-btn {
-            background-color: #e85f54;
+            background-color: var(--primary-teal);
             color: white;
             border: none;
             padding: 10px 8px;
@@ -622,13 +623,13 @@
             align-items: center;
             justify-content: center;
             gap: 6px;
-            box-shadow: 0 4px 10px rgba(232, 95, 84, 0.3);
+            box-shadow: 0 4px 10px rgba(6, 148, 148, 0.3);
             transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
 
         .nav-btn:active {
             transform: scale(0.95);
-            box-shadow: 0 2px 5px rgba(232, 95, 84, 0.3);
+            box-shadow: 0 2px 5px rgba(6, 148, 148, 0.3);
         }
 
         .nav-btn svg {
@@ -659,8 +660,8 @@
 
         .smart-exit-btn { 
             background-color: transparent; 
-            color: #e85f54; 
-            border: 1.5px solid #e85f54; 
+            color: var(--primary-teal); 
+            border: 1.5px solid var(--primary-teal); 
             padding: 10px 8px;
             border-radius: 20px;
             font-weight: bold;
@@ -1010,7 +1011,7 @@
                 iframe.src = `https://www.youtube.com/embed/${channel.liveVideoId}?autoplay=1&mute=${muteParam}&enablejsapi=1&playsinline=1&rel=0`;
             } 
             else {
-                iframe.src = `https://www.youtube.com/embed/${channel.liveVideoId}?autoplay=1&mute=${muteParam}&enablejsapi=1&playsinline=1&rel=0`;
+                iframe.src = `https://www.youtube.com/embed/${channel.liveVideoId}?autoplay=1&mute=${muteParam}&enablejsapi=1&rel=0`;
             }
         }
 
