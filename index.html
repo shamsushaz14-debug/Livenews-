@@ -788,7 +788,7 @@
 
             <div class="video-wrapper" id="video-wrapper">
                 <iframe id="tv-player"
-                    src="about:blank"
+                    src=""
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
                     loading="eager">
                 </iframe>
@@ -864,22 +864,6 @@
         
         let hasShownSwipeHint = false; 
         let showTimeMode = true;
-        let hasPlayerHistoryState = false; // ഹിസ്റ്ററി സ്റ്റേറ്റ് ട്രാക്ക് ചെയ്യാൻ
-
-        // ഹിസ്റ്ററിയിൽ പുതിയ എൻട്രികൾ വരാതെ iframe അപ്ഡേറ്റ് ചെയ്യാനുള്ള ഫംഗ്ഷൻ
-        function setIframeUrlWithoutHistory(url) {
-            const iframe = document.getElementById('tv-player');
-            if (!iframe) return;
-            try {
-                if (iframe.contentWindow) {
-                    iframe.contentWindow.location.replace(url);
-                } else {
-                    iframe.src = url;
-                }
-            } catch (e) {
-                iframe.src = url;
-            }
-        }
 
         function renderClockContent() {
             const clockEl = document.getElementById('live-clock');
@@ -1059,14 +1043,10 @@
             currentIndex = index;
             const channel = channels[currentIndex];
             const playerBox = document.getElementById('player-box');
+            const iframe = document.getElementById('tv-player');
 
-            // പ്ലെയർ തുറക്കുമ്പോൾ ഒരൊറ്റ തവണ മാത്രം ഹിസ്റ്ററി സ്റ്റേറ്റ് ചേർക്കുന്നു
             if (playerBox.style.display !== "block") {
                 playerBox.style.display = "block";
-                if (!hasPlayerHistoryState) {
-                    window.history.pushState({ playerOpen: true }, "");
-                    hasPlayerHistoryState = true;
-                }
             }
 
             requestWakeLock();
@@ -1080,10 +1060,9 @@
             }
 
             const muteParam = isMuted ? 1 : 0;
-            let embedUrl = "";
 
             if (channel.id === 6 || channel.id === 7) {
-                embedUrl = `https://www.youtube-nocookie.com/embed/${channel.liveVideoId}?autoplay=1&mute=${muteParam}&enablejsapi=1&playsinline=1&rel=0`;
+                iframe.src = `https://www.youtube-nocookie.com/embed/${channel.liveVideoId}?autoplay=1&mute=${muteParam}&enablejsapi=1&playsinline=1&rel=0`;
             }
             else if (channel.id === 8) {
                 try {
@@ -1091,14 +1070,11 @@
                     const data = await response.json();
                     if (data.videoId) channel.liveVideoId = data.videoId;
                 } catch (err) {}
-                embedUrl = `https://www.youtube.com/embed/${channel.liveVideoId}?autoplay=1&mute=${muteParam}&enablejsapi=1&playsinline=1&rel=0`;
+                iframe.src = `https://www.youtube.com/embed/${channel.liveVideoId}?autoplay=1&mute=${muteParam}&enablejsapi=1&playsinline=1&rel=0`;
             } 
             else {
-                embedUrl = `https://www.youtube.com/embed/${channel.liveVideoId}?autoplay=1&mute=${muteParam}&enablejsapi=1&rel=0`;
+                iframe.src = `https://www.youtube.com/embed/${channel.liveVideoId}?autoplay=1&mute=${muteParam}&enablejsapi=1&rel=0`;
             }
-
-            // ഹിസ്റ്ററി കൂടാതെ ചാനൽ മാറ്റുന്നു
-            setIframeUrlWithoutHistory(embedUrl);
         }
 
         async function refreshCurrentChannel() {
@@ -1159,60 +1135,26 @@
             }
         }
 
-        // പ്ലെയർ ക്ലോസ് ചെയ്ത് ആദ്യത്തെ അവസ്ഥയിലേക്ക് എത്തിക്കുന്ന ഫംഗ്ഷൻ
-        function closePlayerToInitialState() {
-            const playerBox = document.getElementById('player-box');
-            setIframeUrlWithoutHistory("about:blank");
-            if (playerBox) playerBox.style.display = "none";
-            currentIndex = -1;
-            releaseWakeLock();
-            updateFsActiveIcon();
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-
-        // 2-Step Smart Exit സിസ്റ്റം
         function handleSmartExit() {
             const playerBox = document.getElementById('player-box');
+            const iframe = document.getElementById('tv-player');
 
-            // ഫുൾസ്ക്രീനിലാണെങ്കിൽ ആദ്യം അതിൽ നിന്ന് പുറത്തുകടക്കുന്നു
-            if (document.fullscreenElement || document.webkitFullscreenElement || (playerBox && playerBox.classList.contains('fullscreen-mode'))) {
+            if (document.fullscreenElement || document.webkitFullscreenElement) {
                 exitFullScreen();
                 return;
             }
 
-            // 1-ാമത്തെ പ്രാവശ്യം Exit അമർത്തുമ്പോൾ: പ്ലെയർ ക്ലോസ് ചെയ്ത് ആദ്യത്തെ പേജിലേക്ക് എത്തുന്നു
             if (playerBox && playerBox.style.display === "block") {
-                if (hasPlayerHistoryState) {
-                    window.history.back(); // ഇത് popstate വഴി closePlayerToInitialState() പ്രവർത്തിപ്പിക്കും
-                } else {
-                    closePlayerToInitialState();
-                }
+                iframe.src = "";
+                playerBox.style.display = "none";
+                currentIndex = -1;
+                releaseWakeLock(); 
+                window.scrollTo({ top: 0, behavior: 'smooth' });
                 return;
             }
 
-            // 2-ാമത്തെ പ്രാവശ്യം Exit അമർത്തുമ്പോൾ: ആപ്പിൽ നിന്നും പുറത്തേക്ക് കടക്കുന്നു
             window.history.back();
-            setTimeout(() => {
-                window.close();
-            }, 100);
         }
-
-        // ഫോണിലെ Back ബട്ടൺ അമർത്തുമ്പോഴും കൃത്യമായി പ്രവർത്തിക്കാൻ
-        window.addEventListener('popstate', (event) => {
-            const playerBox = document.getElementById('player-box');
-            
-            if (document.fullscreenElement || document.webkitFullscreenElement || (playerBox && playerBox.classList.contains('fullscreen-mode'))) {
-                exitFullScreen();
-                window.history.pushState({ playerOpen: true }, "");
-                hasPlayerHistoryState = true;
-                return;
-            }
-
-            if (playerBox && playerBox.style.display === "block") {
-                hasPlayerHistoryState = false;
-                closePlayerToInitialState();
-            }
-        });
 
         function changeChannel(direction) {
             if (currentIndex === -1) {
@@ -1392,9 +1334,6 @@
         }
 
         window.onload = function() {
-            // പ്രാരംഭ ഹിസ്റ്ററി സ്റ്റേറ്റ് സെറ്റ് ചെയ്യുന്നു
-            window.history.replaceState({ initialHome: true }, "");
-
             document.getElementById('mute-svg-icon').innerHTML = svgMuted;
             
             renderClockContent();
