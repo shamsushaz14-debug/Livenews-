@@ -421,6 +421,41 @@
             align-items: center;
         }
 
+        /* Fullscreen Bottom Center Live Time (Smaller Size) */
+        .fs-live-clock {
+            display: none;
+            position: absolute;
+            bottom: max(25px, env(safe-area-inset-bottom));
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 2147483646;
+            background-color: rgba(0, 0, 0, 0.55);
+            color: #ffffff;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            pointer-events: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+            align-items: baseline;
+            gap: 3px;
+            white-space: nowrap;
+            transition: opacity 0.3s ease;
+        }
+
+        .fs-live-clock .ampm-fs {
+            font-size: 0.75em;
+            color: #ddd;
+            font-weight: 600;
+        }
+
+        .player-container.fullscreen-mode .fs-live-clock {
+            display: flex;
+        }
+
         /* Button Adjustments */
         .fs-btn {
             background-color: rgba(0, 0, 0, 0.75);
@@ -779,6 +814,9 @@
                 </button>
             </div>
 
+            <!-- Fullscreen Bottom Center Live Time -->
+            <div class="fs-live-clock" id="fs-live-clock"></div>
+
             <div class="bottom-right-group">
                 <button class="round-action-btn stretch-btn-round" id="side-stretch-btn" onclick="toggleStretchRatio()" title="Stretch 20:9">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 15v6h-6M3 9V3h6M21 3l-7 7M3 21l7-7M21 21l-7-7M3 3l7 7"/></svg>
@@ -864,6 +902,34 @@
         
         let hasShownSwipeHint = false; 
         let showTimeMode = true;
+        let isFsClockVisible = true;
+
+        function updateFsLiveClock() {
+            const fsClockEl = document.getElementById('fs-live-clock');
+            if (!fsClockEl) return;
+            const now = new Date();
+            let hours = now.getHours();
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            hours = hours ? hours : 12;
+            const strHours = String(hours).padStart(2, '0');
+            fsClockEl.innerHTML = `${strHours}:${minutes} <span class="ampm-fs">${ampm}</span>`;
+        }
+
+        function toggleFsClockBlink() {
+            const fsClock = document.getElementById('fs-live-clock');
+            const fsList = document.getElementById('fs-channel-list');
+            if (!fsClock) return;
+            
+            isFsClockVisible = !isFsClockVisible;
+            
+            if (fsList && fsList.classList.contains('show')) {
+                fsClock.style.opacity = '0';
+            } else {
+                fsClock.style.opacity = isFsClockVisible ? '1' : '0';
+            }
+        }
 
         function renderClockContent() {
             const clockEl = document.getElementById('live-clock');
@@ -996,14 +1062,17 @@
 
         function showFsChannels() {
             const fsList = document.getElementById('fs-channel-list');
+            const fsClock = document.getElementById('fs-live-clock');
             if (!fsList) return;
             
             updateFsActiveIcon();
             fsList.classList.add('show');
+            if (fsClock) fsClock.style.opacity = '0';
             
             clearTimeout(fsChannelTimer);
             fsChannelTimer = setTimeout(() => {
                 fsList.classList.remove('show');
+                if (fsClock && isFsClockVisible) fsClock.style.opacity = '1';
             }, 3000);
         }
 
@@ -1252,6 +1321,7 @@
             }
 
             playerBox.classList.add('fullscreen-mode');
+            updateFsLiveClock();
 
             try {
                 const elem = document.documentElement;
@@ -1338,6 +1408,10 @@
             
             renderClockContent();
             setInterval(toggleClockBlink, 3000);
+
+            updateFsLiveClock();
+            setInterval(updateFsLiveClock, 1000);
+            setInterval(toggleFsClockBlink, 5000);
 
             buildGrid();
             buildFsChannelList();
