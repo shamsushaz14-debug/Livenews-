@@ -236,15 +236,18 @@
             height: 0;
             background: #000;
             width: 100%;
+            overflow: hidden; /* യൂട്യൂബ് ടൈറ്റിലും ഐക്കണുകളും പുറത്തുപോകാതെ തടയുന്നു */
         }
 
+        /* YouTube എഴുത്തുകളും ഐക്കണുകളും മറയ്ക്കാനുള്ള ക്രമീകരണം */
         .video-wrapper iframe {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            top: -12%; 
+            left: -2%;
+            width: 104%;
+            height: 124%;
             border: 0;
+            pointer-events: none; /* യൂട്യൂബിലേക്ക് ക്ലിക്കുകളോ ഹോവറോ പോകാതിരിക്കാൻ */
         }
 
         .player-container.fullscreen-mode {
@@ -276,6 +279,7 @@
             max-height: 100vh !important;
             max-width: 177.78vh !important;
             padding-bottom: 0 !important;
+            overflow: hidden !important;
         }
 
         .player-container.fullscreen-mode.ratio-stretch .video-wrapper {
@@ -288,10 +292,10 @@
         }
 
         .player-container.fullscreen-mode.ratio-stretch .video-wrapper iframe {
-            width: 100vw !important;
-            height: 56.25vw !important; 
-            min-height: 100vh !important;
-            min-width: 177.77vh !important; 
+            width: 104vw !important;
+            height: 68vw !important; 
+            min-height: 124vh !important;
+            min-width: 185vh !important; 
             position: absolute !important;
             top: 50% !important;
             left: 50% !important;
@@ -853,13 +857,11 @@
         <div class="grid-container" id="grid-container"></div>
 
         <div class="nav-bar">
-            <!-- Modernized Prev Button -->
             <button class="nav-btn" onclick="changeChannel(-1)">
                 <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
                 Prev
             </button>
             <button class="fullscreen-btn" onclick="requestFullScreen()" title="Full Screen">⛶ Full Screen</button>
-            <!-- Modernized Next Button -->
             <button class="nav-btn" onclick="changeChannel(1)">
                 Next
                 <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
@@ -1129,9 +1131,11 @@
             }
 
             const muteParam = isMuted ? 1 : 0;
+            // യൂട്യൂബ് സിംബലുകളും കൺട്രോളുകളും ഒഴിവാക്കാനുള്ള പാരാമീറ്ററുകൾ
+            const ytCleanParams = `autoplay=1&mute=${muteParam}&controls=0&modestbranding=1&rel=0&showinfo=0&iv_load_policy=3&disablekb=1&fs=0&playsinline=1&enablejsapi=1`;
 
             if (channel.id === 6 || channel.id === 7) {
-                iframe.src = `https://www.youtube-nocookie.com/embed/${channel.liveVideoId}?autoplay=1&mute=${muteParam}&enablejsapi=1&playsinline=1&rel=0`;
+                iframe.src = `https://www.youtube-nocookie.com/embed/${channel.liveVideoId}?${ytCleanParams}`;
             }
             else if (channel.id === 8) {
                 try {
@@ -1139,10 +1143,10 @@
                     const data = await response.json();
                     if (data.videoId) channel.liveVideoId = data.videoId;
                 } catch (err) {}
-                iframe.src = `https://www.youtube.com/embed/${channel.liveVideoId}?autoplay=1&mute=${muteParam}&enablejsapi=1&playsinline=1&rel=0`;
+                iframe.src = `https://www.youtube-nocookie.com/embed/${channel.liveVideoId}?${ytCleanParams}`;
             } 
             else {
-                iframe.src = `https://www.youtube.com/embed/${channel.liveVideoId}?autoplay=1&mute=${muteParam}&enablejsapi=1&rel=0`;
+                iframe.src = `https://www.youtube-nocookie.com/embed/${channel.liveVideoId}?${ytCleanParams}`;
             }
         }
 
