@@ -230,24 +230,28 @@
             border: 1.5px solid var(--border-color);
         }
 
+        /* 
+         * പ്രൊഫഷണൽ ക്രോപ്പിങ് ടെക്നിക് (Viewport Cropping):
+         * യൂട്യൂബിന്റെ മുകളിലെയും താഴത്തെയും എഴുത്തുകളും ഐക്കണുകളും 
+         * ഫ്രെയിമിന് പുറത്തേക്ക് തള്ളി മറയ്ക്കുന്നു.
+         */
         .video-wrapper {
             position: relative;
             padding-bottom: 56.25%;
             height: 0;
             background: #000;
             width: 100%;
-            overflow: hidden; /* യൂട്യൂബ് ടൈറ്റിലും ഐക്കണുകളും പുറത്തുപോകാതെ തടയുന്നു */
+            overflow: hidden;
         }
 
-        /* YouTube എഴുത്തുകളും ഐക്കണുകളും മറയ്ക്കാനുള്ള ക്രമീകരണം */
         .video-wrapper iframe {
             position: absolute;
-            top: -12%; 
+            top: -13%;
             left: -2%;
             width: 104%;
-            height: 124%;
+            height: 126%;
             border: 0;
-            pointer-events: none; /* യൂട്യൂബിലേക്ക് ക്ലിക്കുകളോ ഹോവറോ പോകാതിരിക്കാൻ */
+            pointer-events: none;
         }
 
         .player-container.fullscreen-mode {
@@ -293,8 +297,8 @@
 
         .player-container.fullscreen-mode.ratio-stretch .video-wrapper iframe {
             width: 104vw !important;
-            height: 68vw !important; 
-            min-height: 124vh !important;
+            height: 70vw !important; 
+            min-height: 126vh !important;
             min-width: 185vh !important; 
             position: absolute !important;
             top: 50% !important;
@@ -423,41 +427,6 @@
         .player-container.fullscreen-mode .bottom-right-group {
             display: flex;
             align-items: center;
-        }
-
-        /* Fullscreen Bottom Center Live Time (Smaller Size) */
-        .fs-live-clock {
-            display: none;
-            position: absolute;
-            bottom: max(25px, env(safe-area-inset-bottom));
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 2147483646;
-            background-color: rgba(0, 0, 0, 0.55);
-            color: #ffffff;
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 700;
-            letter-spacing: 0.5px;
-            backdrop-filter: blur(4px);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            pointer-events: none;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.6);
-            align-items: baseline;
-            gap: 3px;
-            white-space: nowrap;
-            transition: opacity 0.3s ease;
-        }
-
-        .fs-live-clock .ampm-fs {
-            font-size: 0.75em;
-            color: #ddd;
-            font-weight: 600;
-        }
-
-        .player-container.fullscreen-mode .fs-live-clock {
-            display: flex;
         }
 
         /* Button Adjustments */
@@ -818,9 +787,6 @@
                 </button>
             </div>
 
-            <!-- Fullscreen Bottom Center Live Time -->
-            <div class="fs-live-clock" id="fs-live-clock"></div>
-
             <div class="bottom-right-group">
                 <button class="round-action-btn stretch-btn-round" id="side-stretch-btn" onclick="toggleStretchRatio()" title="Stretch 20:9">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 15v6h-6M3 9V3h6M21 3l-7 7M3 21l7-7M21 21l-7-7M3 3l7 7"/></svg>
@@ -897,6 +863,7 @@
         let currentIndex = -1;
         let isMuted = true;
         let isStretchMode = false;
+        let isPlayerInitialized = false;
         let favorites = JSON.parse(localStorage.getItem('news_tv_favs')) || [];
         let deferredPrompt = null;
         let wakeLock = null;
@@ -904,34 +871,6 @@
         
         let hasShownSwipeHint = false; 
         let showTimeMode = true;
-        let isFsClockVisible = true;
-
-        function updateFsLiveClock() {
-            const fsClockEl = document.getElementById('fs-live-clock');
-            if (!fsClockEl) return;
-            const now = new Date();
-            let hours = now.getHours();
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-            const ampm = hours >= 12 ? 'PM' : 'AM';
-            hours = hours % 12;
-            hours = hours ? hours : 12;
-            const strHours = String(hours).padStart(2, '0');
-            fsClockEl.innerHTML = `${strHours}:${minutes} <span class="ampm-fs">${ampm}</span>`;
-        }
-
-        function toggleFsClockBlink() {
-            const fsClock = document.getElementById('fs-live-clock');
-            const fsList = document.getElementById('fs-channel-list');
-            if (!fsClock) return;
-            
-            isFsClockVisible = !isFsClockVisible;
-            
-            if (fsList && fsList.classList.contains('show')) {
-                fsClock.style.opacity = '0';
-            } else {
-                fsClock.style.opacity = isFsClockVisible ? '1' : '0';
-            }
-        }
 
         function renderClockContent() {
             const clockEl = document.getElementById('live-clock');
@@ -1064,17 +1003,14 @@
 
         function showFsChannels() {
             const fsList = document.getElementById('fs-channel-list');
-            const fsClock = document.getElementById('fs-live-clock');
             if (!fsList) return;
             
             updateFsActiveIcon();
             fsList.classList.add('show');
-            if (fsClock) fsClock.style.opacity = '0';
             
             clearTimeout(fsChannelTimer);
             fsChannelTimer = setTimeout(() => {
                 fsList.classList.remove('show');
-                if (fsClock && isFsClockVisible) fsClock.style.opacity = '1';
             }, 3000);
         }
 
@@ -1110,7 +1046,7 @@
             if (index !== -1) playChannel(index);
         }
 
-        async function playChannel(index) {
+        async function playChannel(index, forceReload = false) {
             currentIndex = index;
             const channel = channels[currentIndex];
             const playerBox = document.getElementById('player-box');
@@ -1130,24 +1066,29 @@
                 unmuteToast.style.display = 'none';
             }
 
-            const muteParam = isMuted ? 1 : 0;
-            // യൂട്യൂബ് സിംബലുകളും കൺട്രോളുകളും ഒഴിവാക്കാനുള്ള പാരാമീറ്ററുകൾ
-            const ytCleanParams = `autoplay=1&mute=${muteParam}&controls=0&modestbranding=1&rel=0&showinfo=0&iv_load_policy=3&disablekb=1&fs=0&playsinline=1&enablejsapi=1`;
-
-            if (channel.id === 6 || channel.id === 7) {
-                iframe.src = `https://www.youtube-nocookie.com/embed/${channel.liveVideoId}?${ytCleanParams}`;
-            }
-            else if (channel.id === 8) {
+            if (channel.id === 8) {
                 try {
                     const response = await fetch('https://news18-live-fetcher.shamsushaz14.workers.dev');
                     const data = await response.json();
                     if (data.videoId) channel.liveVideoId = data.videoId;
                 } catch (err) {}
-                iframe.src = `https://www.youtube-nocookie.com/embed/${channel.liveVideoId}?${ytCleanParams}`;
-            } 
-            else {
-                iframe.src = `https://www.youtube-nocookie.com/embed/${channel.liveVideoId}?${ytCleanParams}`;
             }
+
+            // പ്ലെയർ ഇതിനകം ഓൺ ആണെങ്കിൽ പേജ് റീലോഡ് ചെയ്യാതെ നേരിട്ട് വീഡിയോ മാറ്റുന്നു (Seamless TV Switching)
+            if (isPlayerInitialized && !forceReload && iframe.contentWindow) {
+                iframe.contentWindow.postMessage(JSON.stringify({
+                    'event': 'command',
+                    'func': 'loadVideoById',
+                    'args': [channel.liveVideoId]
+                }), '*');
+                return;
+            }
+
+            const muteParam = isMuted ? 1 : 0;
+            const cleanParams = `autoplay=1&mute=${muteParam}&controls=0&modestbranding=1&rel=0&iv_load_policy=3&disablekb=1&fs=0&playsinline=1&enablejsapi=1`;
+            
+            iframe.src = `https://www.youtube-nocookie.com/embed/${channel.liveVideoId}?${cleanParams}`;
+            isPlayerInitialized = true;
         }
 
         async function refreshCurrentChannel() {
@@ -1169,7 +1110,7 @@
                         currentChannel.liveVideoId = data.videoId;
                     }
                 } catch (err) {} finally {
-                    playChannel(currentIndex);
+                    playChannel(currentIndex, true);
                     setTimeout(() => refreshIcon.classList.remove('spin-icon'), 800);
                 }
                 return;
@@ -1180,7 +1121,7 @@
                 : (currentChannel.channelId ? `https://www.youtube.com/channel/${currentChannel.channelId}/live` : "");
 
             if (!targetUrl) {
-                playChannel(currentIndex);
+                playChannel(currentIndex, true);
                 refreshIcon.classList.remove('spin-icon');
                 return;
             }
@@ -1198,9 +1139,9 @@
                 if (match && match[1]) {
                     currentChannel.liveVideoId = match[1];
                 }
-                playChannel(currentIndex);
+                playChannel(currentIndex, true);
             } catch (err) {
-                playChannel(currentIndex);
+                playChannel(currentIndex, true);
             } finally {
                 setTimeout(() => {
                     refreshIcon.classList.remove('spin-icon');
@@ -1221,6 +1162,7 @@
                 iframe.src = "";
                 playerBox.style.display = "none";
                 currentIndex = -1;
+                isPlayerInitialized = false;
                 releaseWakeLock(); 
                 window.scrollTo({ top: 0, behavior: 'smooth' });
                 return;
@@ -1325,7 +1267,6 @@
             }
 
             playerBox.classList.add('fullscreen-mode');
-            updateFsLiveClock();
 
             try {
                 const elem = document.documentElement;
@@ -1412,10 +1353,6 @@
             
             renderClockContent();
             setInterval(toggleClockBlink, 3000);
-
-            updateFsLiveClock();
-            setInterval(updateFsLiveClock, 1000);
-            setInterval(toggleFsClockBlink, 5000);
 
             buildGrid();
             buildFsChannelList();
