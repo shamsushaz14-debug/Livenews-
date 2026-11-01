@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="referrer" content="origin">
     
     <!-- PWA & Mobile Optimization -->
     <meta name="mobile-web-app-capable" content="yes">
@@ -855,7 +856,7 @@
         ];
 
         // വേർഷൻ മാറുമ്പോൾ പഴയ കാഷെ തനിയെ ക്ലിയർ ചെയ്യുന്നു
-        const CACHE_VERSION = "v5_2026_11_01_pro";
+        const CACHE_VERSION = "v6_2026_11_01_adshield";
         if (localStorage.getItem('news_tv_cache_ver') !== CACHE_VERSION) {
             localStorage.removeItem('news_tv_live_ids');
             localStorage.removeItem('news_tv_expired_ids');
@@ -863,7 +864,6 @@
         }
 
         const savedLiveIds = JSON.parse(localStorage.getItem('news_tv_live_ids')) || {};
-        // പഴയതും കേടായതുമായ ഐഡികൾ തനിയെ സൂക്ഷിക്കുന്ന ഡൈനാമിക് ബ്ലാക്ക്‌ലിസ്റ്റ്
         const defaultExpired = ["s0LLVQeMmtU", "72ngeza9aKA", "l4CTvEXbTJg", "HHd_4Bp3v6k", "M_2UPAcgxrY"];
         let expiredIds = JSON.parse(localStorage.getItem('news_tv_expired_ids')) || defaultExpired;
         defaultExpired.forEach(id => {
@@ -896,9 +896,24 @@
         let fsChannelTimer;
         let autoRecoverInProgress = false;
         let attemptedAutoRecover = {};
+        let playerReady = false;
         
         let hasShownSwipeHint = false; 
         let showTimeMode = true;
+
+        // IFrame Player-ലേക്ക് കമാൻഡുകൾ അയക്കുന്ന ഫങ്ഷൻ
+        function sendPlayerCommand(func, args = []) {
+            const iframe = document.getElementById('tv-player');
+            if (iframe && iframe.contentWindow) {
+                try {
+                    iframe.contentWindow.postMessage(JSON.stringify({
+                        event: 'command',
+                        func: func,
+                        args: args
+                    }), '*');
+                } catch (e) {}
+            }
+        }
 
         function renderClockContent() {
             const clockEl = document.getElementById('live-clock');
@@ -1090,7 +1105,8 @@
             }
         }
 
-        async function playChannel(index) {
+        // പരസ്യം പരമാവധി ഒഴിവാക്കാൻ ഒരേ പ്ലെയറിനുള്ളിൽ loadVideoById ഉപയോഗിച്ച് ചാനൽ മാറ്റുന്നു
+        async function playChannel(index, forceIframeReload = false) {
             currentIndex = index;
             const channel = channels[currentIndex];
             const playerBox = document.getElementById('player-box');
@@ -1118,13 +1134,27 @@
                 } catch (err) {}
             }
 
-            iframe.src = `https://www.youtube.com/embed/${channel.liveVideoId}?autoplay=1&mute=${muteParam}&enablejsapi=1&playsinline=1&rel=0`;
+            // പ്ലെയർ ഇതിനകം റെഡിയാണെങ്കിൽ iframe റീലോഡ് ചെയ്യാതെ ഉള്ളിലെ സ്ട്രീം മാത്രം മാറ്റുന്നു (ഇത് Pre-roll പരസ്യങ്ങൾ ഒഴിവാക്കും)
+            if (playerReady && !forceIframeReload && iframe.src && iframe.src.includes('/embed/')) {
+                sendPlayerCommand('loadVideoById', [{
+                    videoId: channel.liveVideoId,
+                    startSeconds: 0
+                }]);
+                setTimeout(() => {
+                    sendPlayerCommand(isMuted ? 'mute' : 'unMute');
+                    sendPlayerCommand('playVideo');
+                }, 150);
+            } else {
+                const originParam = location.origin && location.origin !== 'null' ? `&origin=${encodeURIComponent(location.origin)}` : '';
+                iframe.src = `https://www.youtube-nocookie.com/embed/${channel.liveVideoId}?autoplay=1&mute=${muteParam}&enablejsapi=1&playsinline=1&rel=0&modestbranding=1& iv_load_policy=3${originParam}`;
+            }
         }
 
-        // YouTube IFrame API വഴി എറർ വന്നാലോ ലൈവ് അവസാനിച്ചാലോ (state === 0) തനിയെ പുതിയ ലൈവ് എടുക്കുന്നു
+        // YouTube IFrame API കണക്ഷനും Auto Ad-Skipper സംവിധാനവും
         const iframeEl = document.getElementById('tv-player');
         if (iframeEl) {
             iframeEl.addEventListener('load', () => {
+                playerReady = true;
                 try {
                     if (iframeEl.contentWindow) {
                         iframeEl.contentWindow.postMessage(JSON.stringify({
@@ -1140,6 +1170,23 @@
             if (!event.origin.includes('youtube.com') && !event.origin.includes('youtube-nocookie.com')) return;
             try {
                 const data = JSON.parse(event.data);
+
+                // പരസ്യമാണോ പ്ലേ ആകുന്നതെന്ന് പരിശോധിച്ച് 2x വേഗതയിലാക്കുകയും സ്കിപ്പ് ചെയ്യുകയും ചെയ്യുന്നു
+                if (data.event === 'infoDelivery' && data.info) {
+                    const dur = data.info.duration;
+                    const cur = data.info.currentTime;
+
+                    // ലൈവ് സ്ട്രീമുകൾക്ക് പകരം ചെറിയ ദൈർഘ്യമുള്ള പരസ്യങ്ങൾ (5 മിനിറ്റിൽ താഴെ) ആണെങ്കിൽ Fast-Forward ചെയ്യുന്നു
+                    if (typeof dur === 'number' && dur > 0 && dur < 300) {
+                        sendPlayerCommand('setPlaybackRate', [2]);
+                        if (typeof cur === 'number' && cur < dur - 1) {
+                            sendPlayerCommand('seekTo', [dur, true]);
+                        }
+                    } else if (typeof dur === 'number' && dur >= 300) {
+                        sendPlayerCommand('setPlaybackRate', [1]);
+                    }
+                }
+
                 const isEnded = data.event === 'infoDelivery' && data.info && data.info.playerState === 0;
                 const isError = data.event === 'onError';
 
@@ -1167,11 +1214,10 @@
             }
         }
 
-        // HTML പേജിൽ നിന്ന് യഥാർത്ഥ ലൈവ് Video ID മാത്രം വേർതിരിച്ചെടുക്കുന്ന കർശനമായ ഫങ്ഷൻ
+        // HTML പേജിൽ നിന്ന് യഥാർത്ഥ ലൈവ് Video ID മാത്രം വേർതിരിച്ചെടുക്കുന്ന ഫങ്ഷൻ
         function extractLiveVideoId(html, oldVideoId = "", isDirectChannelPage = false) {
             if (!html) return null;
 
-            // ലൈവ് സ്ട്രീം ആണെന്ന് ഉറപ്പുവരുത്തുന്ന പാറ്റേണുകൾ
             const strictLivePatterns = [
                 /"videoId":"([a-zA-Z0-9_-]{11})"[^}]{0,500}?"isLiveNow":true/g,
                 /"isLiveNow":true[^}]{0,500}?"videoId":"([a-zA-Z0-9_-]{11})"/g,
@@ -1182,7 +1228,6 @@
                 /"gridVideoRenderer":\{"videoId":"([a-zA-Z0-9_-]{11})"[\s\S]{1,900}?"style":"LIVE"/g
             ];
 
-            // ചാനലിന്റെ നേരിട്ടുള്ള /live പേജ് ആണെങ്കിൽ കനോനിക്കൽ യുആർഎൽ ആദ്യം പരിശോധിക്കുന്നു
             if (isDirectChannelPage) {
                 strictLivePatterns.unshift(
                     /<link rel="canonical" href="https:\/\/www\.youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})"/g,
@@ -1325,7 +1370,6 @@
         async function findLatestLiveVideoId(channel) {
             const oldId = channel.liveVideoId;
 
-            // ഘട്ടം 1: ചാനലിന്റെ സ്വന്തം Handle (/live, /streams), Channel ID എന്നിവയ്ക്ക് ഒന്നാം പരിഗണന
             const stage1Promises = [];
             if (channel.handle) {
                 stage1Promises.push(fetchFromWebProxies(`https://www.youtube.com/${channel.handle}/live`, oldId, true));
@@ -1347,7 +1391,6 @@
                 }
             } catch (e) {}
 
-            // ഘട്ടം 2: നേരിട്ട് ലഭിച്ചില്ലെങ്കിൽ സെർച്ച് എഞ്ചിനുകളും API-കളും ഉപയോഗിക്കുന്നു
             const stage2Promises = [];
             const queryText = channel.searchQuery || `${channel.name} Malayalam Live`;
             const ytLiveSearchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(queryText)}&sp=EgJAAQ%253D%253D`;
@@ -1390,7 +1433,6 @@
             try {
                 let newVideoId = null;
 
-                // News18 Kerala ആണെങ്കിൽ ആദ്യം Cloudflare Worker പരിശോധിക്കുന്നു, ഇല്ലെങ്കിൽ സാധാരണ തിരച്ചിൽ നടത്തുന്നു
                 if (currentChannel.id === 8) {
                     try {
                         const response = await fetchWithTimeout(`https://news18-live-fetcher.shamsushaz14.workers.dev?t=${Date.now()}`, 4000);
@@ -1406,7 +1448,6 @@
                 }
 
                 if (newVideoId && newVideoId !== previousVideoId) {
-                    // പഴയ കേടായ ഐഡി ബ്ലാക്ക്‌ലിസ്റ്റിലേക്ക് മാറ്റുന്നു
                     addToExpired(previousVideoId);
                     currentChannel.liveVideoId = newVideoId;
                     savedLiveIds[currentChannel.id] = newVideoId;
@@ -1414,7 +1455,7 @@
                 }
             } catch (err) {} finally {
                 autoRecoverInProgress = false;
-                playChannel(currentIndex);
+                playChannel(currentIndex, false);
                 setTimeout(() => {
                     refreshIcon.classList.remove('spin-icon');
                 }, 600);
@@ -1431,7 +1472,9 @@
             }
 
             if (playerBox && playerBox.style.display === "block") {
+                sendPlayerCommand('stopVideo');
                 iframe.src = "";
+                playerReady = false;
                 playerBox.style.display = "none";
                 currentIndex = -1;
                 releaseWakeLock(); 
@@ -1466,7 +1509,6 @@
         function toggleMute() {
             isMuted = !isMuted;
             const muteSvgIcon = document.getElementById('mute-svg-icon');
-            const iframe = document.getElementById('tv-player');
             const unmuteToast = document.getElementById('center-unmute-toast');
             const toastText = document.getElementById('toast-text');
 
@@ -1494,14 +1536,7 @@
                 unmuteToast.style.display = 'flex';
             }
 
-            const command = isMuted ? 'mute' : 'unMute';
-            if(iframe.contentWindow) {
-                iframe.contentWindow.postMessage(JSON.stringify({
-                    'event': 'command',
-                    'func': command,
-                    'args': []
-                }), '*');
-            }
+            sendPlayerCommand(isMuted ? 'mute' : 'unMute');
         }
 
         function toggleStretchRatio() {
@@ -1630,7 +1665,7 @@
 
             buildGrid();
             buildFsChannelList();
-            playChannel(0);
+            playChannel(0, true);
 
             const swipeOverlay = document.getElementById('swipe-overlay');
             if (swipeOverlay) {
