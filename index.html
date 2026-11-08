@@ -17,12 +17,27 @@
     <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/2989/2989932.png" type="image/png">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2989/2989932.png">
     
-    <!-- Montserrat ExtraBold Font -->
+    <!-- 2x Speed Boost: Preconnect to Fonts & Streaming CDNs -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://raw.githubusercontent.com" crossorigin>
+    <link rel="preconnect" href="https://www.youtube-nocookie.com" crossorigin>
+    <link rel="preconnect" href="https://asianet-samsung.vgcdn.net" crossorigin>
+    <link rel="preconnect" href="https://mmtvnews1.akamaized.net" crossorigin>
+    <link rel="preconnect" href="https://yuppmedtaorire.akamaized.net" crossorigin>
+    <link rel="preconnect" href="https://cdn.pishow.tv" crossorigin>
+    <link rel="preconnect" href="https://streams.tangotv.in" crossorigin>
+    <link rel="preconnect" href="https://mumt07.tangotv.in" crossorigin>
+    <link rel="preconnect" href="https://segment.yuppcdn.net" crossorigin>
+    <link rel="preconnect" href="https://stream.ottlive.co.in" crossorigin>
+    <link rel="preconnect" href="https://d2gvyg6lvauoko.cloudfront.net" crossorigin>
+    <link rel="preconnect" href="https://n18syndication.akamaized.net" crossorigin>
+    <link rel="preconnect" href="https://nw18live.cdn.jio.com" crossorigin>
+
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@800&display=swap" rel="stylesheet">
 
-    <!-- HLS.js for Official Direct .m3u8 Streaming -->
+    <!-- HLS.js for Lightning-Fast Direct .m3u8 Streaming -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 
     <style>
@@ -221,7 +236,7 @@
             flex-grow: 1;
         }
 
-        /* Player Box */
+        /* Player Box (Normal Mode - Uniform 16:9) */
         .player-container {
             width: 100%;
             display: none;
@@ -236,10 +251,11 @@
 
         .video-wrapper {
             position: relative;
-            padding-bottom: 56.25%;
+            padding-bottom: 56.25%; /* Strict 16:9 Aspect Ratio */
             height: 0;
             background: #000;
             width: 100%;
+            overflow: hidden;
         }
 
         .video-wrapper iframe,
@@ -251,6 +267,14 @@
             height: 100%;
             border: 0;
             background: #000;
+            object-fit: fill;
+            transform-origin: center center;
+        }
+
+        /* MediaOne Normal Mode Black-Bar Crop Fix */
+        .player-container.ch-mediaone .video-wrapper video,
+        .player-container.ch-mediaone .video-wrapper iframe {
+            transform: scale(1.04, 1.03);
         }
 
         /* Ad-Shield Blackout Overlay */
@@ -277,7 +301,7 @@
             border: 3.5px solid rgba(6, 148, 148, 0.25);
             border-top-color: var(--primary-teal);
             border-radius: 50%;
-            animation: spin 0.6s linear infinite;
+            animation: spin 0.5s linear infinite;
         }
 
         .ad-shield-title {
@@ -292,6 +316,7 @@
             color: #999;
         }
 
+        /* Fullscreen Mode: Default Strict 16:9 Landscape */
         .player-container.fullscreen-mode {
             position: fixed !important;
             top: 0 !important;
@@ -316,33 +341,68 @@
             top: 50% !important;
             left: 50% !important;
             transform: translate(-50%, -50%) !important;
-            width: 100vw !important;
-            height: 56.25vw !important; 
-            max-height: 100vh !important;
-            max-width: 177.78vh !important;
+            width: min(100vw, 177.78vh) !important;
+            height: min(56.25vw, 100vh) !important;
             padding-bottom: 0 !important;
+            overflow: hidden !important;
         }
 
+        .player-container.fullscreen-mode .video-wrapper iframe,
+        .player-container.fullscreen-mode .video-wrapper video {
+            width: 100% !important;
+            height: 100% !important;
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            transform: none !important;
+            object-fit: fill !important;
+        }
+
+        /* MediaOne 16:9 Fullscreen Border Crop Fix */
+        .player-container.fullscreen-mode.ch-mediaone:not(.ratio-stretch) .video-wrapper video,
+        .player-container.fullscreen-mode.ch-mediaone:not(.ratio-stretch) .video-wrapper iframe {
+            transform: scale(1.04, 1.03) !important;
+        }
+
+        /* 20:9 Stretch Mode: Full Screen Edge-to-Edge Fill when Stretch Button is pressed */
         .player-container.fullscreen-mode.ratio-stretch .video-wrapper {
             width: 100vw !important;
             height: 100vh !important;
             max-width: 100vw !important;
             max-height: 100vh !important;
-            transform: translate(-50%, -50%) !important;
+            top: 0 !important;
+            left: 0 !important;
+            transform: none !important;
             overflow: hidden !important;
         }
 
-        .player-container.fullscreen-mode.ratio-stretch .video-wrapper iframe,
         .player-container.fullscreen-mode.ratio-stretch .video-wrapper video {
             width: 100vw !important;
-            height: 56.25vw !important; 
-            min-height: 100vh !important;
-            min-width: 177.77vh !important; 
+            height: 100vh !important;
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            transform: none !important;
+            object-fit: fill !important;
+        }
+
+        .player-container.fullscreen-mode.ratio-stretch .video-wrapper iframe {
+            width: 100vw !important;
+            height: 100vh !important;
             position: absolute !important;
             top: 50% !important;
             left: 50% !important;
-            transform: translate(-50%, -50%) !important;
-            object-fit: cover !important;
+            transform: translate(-50%, -50%) scaleX(1.26) !important;
+        }
+
+        /* MediaOne 20:9 Stretch Mode Special Fix */
+        .player-container.fullscreen-mode.ratio-stretch.ch-mediaone .video-wrapper video {
+            transform: scale(1.08, 1.06) !important;
+            transform-origin: center center !important;
+        }
+
+        .player-container.fullscreen-mode.ratio-stretch.ch-mediaone .video-wrapper iframe {
+            transform: translate(-50%, -50%) scale(1.34, 1.06) !important;
         }
 
         /* Center Tap to Unmute & Status Toast */
@@ -672,7 +732,7 @@
             text-align: center;
         }
 
-        /* Nav Bar adjustments for modern buttons */
+        /* Nav Bar */
         .nav-bar {
             display: flex;
             justify-content: space-between;
@@ -773,7 +833,7 @@
         </div>
 
         <div class="header-title">
-            <span class="live-badge">🔴 LIVE</span>
+            <span class="live-badge">🔴 LIVE 1080p HD</span>
             <h1>News<span class="tv-text">TV</span></h1>
             <div class="scroll-container">
                 <span class="scroll-text">Developed by Shamsu Shaz © 2026</span>
@@ -792,14 +852,14 @@
 
     <div class="container">
 
-        <!-- Hybrid Player Box (Official HLS + YouTube Fallback with Aggressive Multi-Reload) -->
+        <!-- Hybrid Player Box -->
         <div class="player-container" id="player-box">
             
-            <!-- Ad-Shield Overlay (YouTube Fallback-ൽ പരസ്യം മറയ്ക്കാനുള്ള കവചം) -->
+            <!-- Ad-Shield Overlay -->
             <div class="ad-shield-overlay" id="ad-shield-overlay">
                 <div class="ad-shield-spinner"></div>
                 <div class="ad-shield-title">പരസ്യം ഒഴിവാക്കുന്നു...</div>
-                <div class="ad-shield-sub" id="ad-shield-subtext">Skipping Pre-Roll Ad to Live</div>
+                <div class="ad-shield-sub" id="ad-shield-subtext">Skipping Pre-Roll Ad to 1080p Live</div>
             </div>
 
             <!-- Tap to Unmute Notification -->
@@ -842,10 +902,10 @@
             </div>
 
             <div class="video-wrapper" id="video-wrapper">
-                <!-- 1. Primary Player: 100% Ad-Free Official HLS Video Player -->
-                <video id="hls-player" playsinline autoplay muted style="display:none;"></video>
+                <!-- 1. Primary Player: Strict 1080p HD HLS Video Player -->
+                <video id="hls-player" playsinline autoplay muted preload="auto" style="display:none;"></video>
                 
-                <!-- 2. Secondary Player: YouTube Live Fallback Player -->
+                <!-- 2. Secondary Player: 1080p YouTube Live Player -->
                 <iframe id="tv-player"
                     src=""
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
@@ -899,17 +959,20 @@
             });
         }
 
-        // Hybrid Channel List: ഔദ്യോഗിക HLS (.m3u8) ലിങ്കുകളും (hlsUrls) YouTube Live Fallback വിവരങ്ങളും
+        // എല്ലാ ചാനലുകൾക്കും ഒരേപോലെ 1080p HD മുൻഗണന (SD സ്ട്രീമുകൾ തനിയെ ഒഴിവാക്കി HD ലോക്ക് ചെയ്യുന്നു)
         const channels = [
             {
                 id: 0,
+                streamKey: "24news",
                 name: "24 News",
                 hlsUrls: [
                     "https://segment.yuppcdn.net/110322/channel24/playlist.m3u8",
-                    "https://d1g8wgjurz8via.cloudfront.net/bpk-tv/24news/default/index.m3u8"
+                    "https://mumt07.tangotv.in/zHjX9OFlTWENTYFOURNEWS/index.m3u8"
                 ],
+                preferYouTube1080p: true,
                 liveVideoId: "1wECsnGZcfc",
-                handle: "@TwentyFourNews",
+                handle: "@24OnLive",
+                altHandle: "@TwentyFourNews",
                 searchQuery: "24 News Live TV Malayalam",
                 mustMatch: /24|twenty\s*four/i,
                 channelId: "UC9c5_YlhC1zL-fFPlYhD0SQ",
@@ -917,11 +980,13 @@
             },
             {
                 id: 1,
+                streamKey: "asianet",
                 name: "Asianet News",
                 hlsUrls: [
-                    "https://vidcdn.vidgyor.com/asianet-origin/liveabr/playlist.m3u8",
-                    "https://Asianetnews.acenet.co.in/Asianetnews/index.m3u8"
+                    "https://asianet-samsung.vgcdn.net/ptnr-monitoring/vglive-sk-906908/playlist.m3u8",
+                    "https://streams.tangotv.in/ASIANETNEWS/ORIGIN/index.m3u8"
                 ],
+                preferYouTube1080p: true,
                 liveVideoId: "x1bfKawndzs",
                 handle: "@asianetnews",
                 searchQuery: "Asianet News Live TV Malayalam",
@@ -931,11 +996,13 @@
             },
             {
                 id: 2,
+                streamKey: "manorama",
                 name: "Manorama News",
                 hlsUrls: [
-                    "https://mmtvnews1.akamaized.net/v1/master/673630b269b766886555eebf84f27f3de3ab507f/ManoramaNews/index.m3u8",
-                    "https://segment.yuppcdn.net/050522/manoramanews/playlist.m3u8"
+                    "https://mmtvnews1.akamaized.net/v1/master/673630b269b766886555eebfddd4f27f3de3ab50/mmtvNewsCampaign1/index.m3u8",
+                    "https://yuppmedtaorire.akamaized.net/v1/master/a0d007312bfd99c47f76b77ae26b1ccdaae76cb1/manoramanews_nim_https/240122/manoramanews/playlist.m3u8"
                 ],
+                preferYouTube1080p: true,
                 liveVideoId: "tgBTspqA5nY",
                 handle: "@manoramanews",
                 searchQuery: "Manorama News Live TV Malayalam",
@@ -945,13 +1012,16 @@
             },
             {
                 id: 3,
+                streamKey: "mathrubhumi",
                 name: "Mathrubhumi News",
                 hlsUrls: [
-                    "https://segment.yuppcdn.net/110322/mathrubhumi/playlist.m3u8",
-                    "https://vidcdn.vidgyor.com/mathrubhumi-origin/liveabr/playlist.m3u8"
+                    "https://yuppmedtaorire.akamaized.net/v1/master/a0d007312bfd99c47f76b77ae26b1ccdaae76cb1/mathrubhuminews_nim_https/110322/mathrubhuminews/playlist.m3u8",
+                    "https://streams.tangotv.in/MATHRUBHUMINEWS/ORIGIN/index.m3u8"
                 ],
+                preferYouTube1080p: true,
                 liveVideoId: "RbxEftGN584",
-                handle: "@mathrubhuminews",
+                handle: "@mathrubhuminewstv",
+                altHandle: "@mathrubhuminews",
                 searchQuery: "Mathrubhumi News Live TV",
                 mustMatch: /mathrubhumi/i,
                 channelId: "UCp_p0G5ZIn4C9MUpX3oR_kg",
@@ -959,13 +1029,15 @@
             },
             {
                 id: 4,
+                streamKey: "mediaone",
                 name: "MediaOne",
                 hlsUrls: [
-                    "https://cdn-3.pishow.tv/live/1481/master.m3u8",
-                    "https://segment.yuppcdn.net/110322/mediaone/playlist.m3u8"
+                    "https://cdn.pishow.tv/ott/live/1481/master.m3u8",
+                    "https://streams.tangotv.in/MEDIAONETV/ORIGIN/index.m3u8"
                 ],
+                preferYouTube1080p: true,
                 liveVideoId: "-8d8-c0yvyU",
-                handle: "@MediaOneTVLive",
+                handle: "@MediaoneTVLive",
                 altHandle: "@MediaOneTV",
                 searchQuery: "MediaOne Live TV Malayalam",
                 mustMatch: /media\s*one/i,
@@ -974,13 +1046,15 @@
             },
             {
                 id: 5,
+                streamKey: "reporter",
                 name: "Reporter TV",
                 hlsUrls: [
                     "https://segment.yuppcdn.net/050522/reporter/playlist.m3u8",
-                    "https://vidcdn.vidgyor.com/reporter-origin/liveabr/playlist.m3u8"
+                    "https://mumt07.tangotv.in/zHjX9OFlREPORTERTV/index.m3u8"
                 ],
+                preferYouTube1080p: true,
                 liveVideoId: "nObUcHKZEGY",
-                handle: "@ReporterLive",
+                handle: "@reporterlive",
                 searchQuery: "24x7 Reporter Live TV Malayalam",
                 mustMatch: /reporter/i,
                 channelId: "UC00Svh_DqMpx9YjS4rT0Tew",
@@ -988,37 +1062,47 @@
             },
             {
                 id: 6,
+                streamKey: "bigtv",
                 name: "BIG TV",
-                hlsUrls: [],
-                liveVideoId: "vnFyrDE20G8",
-                handle: "@BIGTV24X7",
+                hlsUrls: [
+                    "https://stream.ottlive.co.in/bigtvmalayalam/index.m3u8",
+                    "https://d2gvyg6lvauoko.cloudfront.net/230226/bigtvmalyalam/chunks.m3u8"
+                ],
+                preferYouTube1080p: true,
+                liveVideoId: "72ngeza9aKA",
+                handle: "@bigtvkerala",
                 altHandle: "@BIGTVMALAYALAM",
-                searchQuery: "BigTV Live Malayalam News Live BIG TV MALAYALAM",
-                mustMatch: /big\s*tv|bigtv24x7/i,
-                excludeMatch: /telugu|kannada|hindi/i,
+                searchQuery: "BIG TV Kerala Malayalam News Live",
+                mustMatch: /big\s*tv|bigtv/i,
+                excludeMatch: /telugu|kannada|hindi|news\s*malayalam|24\s*news|asianet|manorama|mathrubhumi|reporter|media\s*one/i,
                 channelId: "",
                 logo: "bigtv.png"
             },
             {
                 id: 7,
+                streamKey: "newsmalayalam",
                 name: "News Malayalam",
                 hlsUrls: [
-                    "https://cdn-3.pishow.tv/live/1531/master.m3u8"
+                    "https://cdn.pishow.tv/ott/live/1629/master.m3u8"
                 ],
+                preferYouTube1080p: true,
                 liveVideoId: "K91rifR3BA0",
                 handle: "@NewsMalayalam24x7",
                 searchQuery: "News Malayalam 24x7 Live TV",
                 mustMatch: /news\s*malayalam/i,
+                excludeMatch: /big\s*tv/i,
                 channelId: "",
                 logo: "newsmalayalam.png"
             },
             {
                 id: 8,
+                streamKey: "news18",
                 name: "News18 Kerala",
                 hlsUrls: [
-                    "https://nw18live.cdn.jio.com/bpk-tv/News18_Kerala_NW18_MOB/output01/index.m3u8",
-                    "https://n18syndication.akamaized.net/bpk-tv/News18_Kerala_NW18_MOB/output01/index.m3u8"
+                    "https://n18syndication.akamaized.net/bpk-tv/News18_Kerala_NW18_MOB/output01/master.m3u8",
+                    "https://nw18live.cdn.jio.com/bpk-tv/News18_Kerala_NW18_MOB/output01/index.m3u8"
                 ],
+                preferYouTube1080p: true,
                 liveVideoId: "ke-BZTwtxWk",
                 handle: "@News18Kerala",
                 searchQuery: "News18 Kerala Live TV",
@@ -1028,7 +1112,7 @@
             }
         ];
 
-        const CACHE_VERSION = "v11_2026_11_05_hybrid_multireload";
+        const CACHE_VERSION = "v21_2026_11_08_2x_speed_uniform_1080p";
         if (localStorage.getItem('news_tv_cache_ver') !== CACHE_VERSION) {
             localStorage.removeItem('news_tv_live_ids');
             localStorage.removeItem('news_tv_expired_ids');
@@ -1036,7 +1120,7 @@
         }
 
         const savedLiveIds = JSON.parse(localStorage.getItem('news_tv_live_ids')) || {};
-        const defaultExpired = ["s0LLVQeMmtU", "72ngeza9aKA", "l4CTvEXbTJg", "HHd_4Bp3v6k", "M_2UPAcgxrY"];
+        const defaultExpired = ["s0LLVQeMmtU", "l4CTvEXbTJg", "HHd_4Bp3v6k", "M_2UPAcgxrY"];
         let expiredIds = JSON.parse(localStorage.getItem('news_tv_expired_ids')) || defaultExpired;
         defaultExpired.forEach(id => {
             if (!expiredIds.includes(id)) expiredIds.push(id);
@@ -1070,7 +1154,6 @@
         let attemptedAutoRecover = {};
         let playerReady = false;
         
-        // Hybrid + Aggressive Multi-Reload Ad-Killer Variables
         let hlsInstance = null;
         let usingHls = false;
         let isAdPlaying = false;
@@ -1080,11 +1163,34 @@
         let ytPollInterval = null;
         let playSessionId = 0;
         let failedOfficialHls = {};
+        let verifiedHdUrls = {};
+        let githubStreams = JSON.parse(localStorage.getItem('news_tv_gh_streams')) || {};
 
         let hasShownSwipeHint = false; 
         let showTimeMode = true;
 
-        // YouTube IFrame Player-ലേക്ക് കമാൻഡുകൾ അയക്കുന്ന ഫങ്ഷൻ
+        // 2x Speed: ഗിറ്റ്ഹബ്ബിൽ നിന്നും ഒരേസമയം (Parallel Race) streams.json അതിവേഗം ലോഡ് ചെയ്യുന്നു
+        async function loadGitHubActionStreams() {
+            const urlsToTry = [
+                `./streams.json?t=${Date.now()}`,
+                `https://raw.githubusercontent.com/shamsushaz14-debug/Livenews-/main/streams.json?t=${Date.now()}`
+            ];
+            try {
+                const fastestData = await Promise.any(urlsToTry.map(async (u) => {
+                    const controller = new AbortController();
+                    const timer = setTimeout(() => controller.abort(), 1200);
+                    const res = await fetch(u, { cache: "no-store", signal: controller.signal });
+                    clearTimeout(timer);
+                    if (!res.ok) throw new Error("Not OK");
+                    const data = await res.json();
+                    if (data && typeof data === 'object' && Object.keys(data).length > 0) return data;
+                    throw new Error("Empty");
+                }));
+                githubStreams = fastestData;
+                localStorage.setItem('news_tv_gh_streams', JSON.stringify(githubStreams));
+            } catch (e) {}
+        }
+
         function sendPlayerCommand(func, args = []) {
             const iframe = document.getElementById('tv-player');
             if (iframe && iframe.contentWindow) {
@@ -1098,7 +1204,12 @@
             }
         }
 
-        // High-Frequency IFrame API Handshake & Polling (200ms)
+        // YouTube പ്ലെയറിലും എല്ലായിപ്പോഴും 1080p HD ഫോഴ്സ് ചെയ്യുന്നു
+        function enforceYouTubeHighQuality() {
+            sendPlayerCommand('setPlaybackQualityRange', ['hd1080', 'hd1080']);
+            sendPlayerCommand('setPlaybackQuality', ['hd1080']);
+        }
+
         function startYouTubeApiPolling() {
             stopYouTubeApiPolling();
             const iframe = document.getElementById('tv-player');
@@ -1109,6 +1220,7 @@
                         event: 'listening',
                         id: 1
                     }), '*');
+                    enforceYouTubeHighQuality();
                 } catch (e) {}
             }, 250);
         }
@@ -1120,8 +1232,7 @@
             }
         }
 
-        // YouTube-ൽ പരസ്യം വരുമ്പോൾ ബ്ലാക്ക്ഔട്ട് സ്ക്രീൻ കാണിക്കാനും ശബ്ദം മ്യൂട്ട് ചെയ്യാനുമുള്ള ഫങ്ഷൻ
-        function setAdShieldState(active, subText = "Skipping Pre-Roll Ad to Live") {
+        function setAdShieldState(active, subText = "Skipping Pre-Roll Ad to 1080p Live") {
             const shield = document.getElementById('ad-shield-overlay');
             const subEl = document.getElementById('ad-shield-subtext');
             if (!shield) return;
@@ -1135,7 +1246,7 @@
                 clearTimeout(adSafetyTimeout);
                 adSafetyTimeout = setTimeout(() => {
                     setAdShieldState(false);
-                }, 5500);
+                }, 4000);
             } else if (!active && isAdPlaying) {
                 isAdPlaying = false;
                 adReloadBurstCount = 0;
@@ -1143,14 +1254,13 @@
                 clearTimeout(adSafetyTimeout);
                 sendPlayerCommand('setPlaybackRate', [1]);
                 sendPlayerCommand(isMuted ? 'mute' : 'unMute');
+                enforceYouTubeHighQuality();
             }
         }
 
-        // Aggressive Multi-Reload Engine: പരസ്യം വന്നാൽ Fast-Seek + API Multi-Reload + Hard IFrame Reset
         function triggerAggressiveAdBypass(expectedId, dur, cur) {
             setAdShieldState(true, `Bypassing Ad (${Math.min(adReloadBurstCount + 1, 4)})...`);
 
-            // 1. പരസ്യം മ്യൂട്ട് ചെയ്ത് 16x വേഗതയിലാക്കി അവസാന സെക്കൻഡിലേക്ക് ചാടിക്കുന്നു
             sendPlayerCommand('mute');
             sendPlayerCommand('setPlaybackRate', [16]);
             sendPlayerCommand('setPlaybackRate', [2]);
@@ -1160,22 +1270,23 @@
                 }
             }
 
-            // 2. 450ms ഇടവേളയിൽ Aggressive Multi-Reload (API loadVideoById -> Hard IFrame Reset)
             const now = Date.now();
-            if (now - lastAdEvictTime > 450) {
+            if (now - lastAdEvictTime > 220) {
                 lastAdEvictTime = now;
                 adReloadBurstCount++;
 
                 if (adReloadBurstCount <= 3) {
-                    // API വഴി യഥാർത്ഥ ലൈവ് സ്ട്രീം ഫോഴ്സ്-ഇൻജെക്ട് ചെയ്യുന്നു (startSeconds ഇല്ലാതെ Live Edge-ലേക്ക്)
-                    sendPlayerCommand('loadVideoById', [expectedId]);
+                    sendPlayerCommand('loadVideoById', [{
+                        videoId: expectedId,
+                        suggestedQuality: 'hd1080'
+                    }]);
                     sendPlayerCommand('playVideo');
+                    enforceYouTubeHighQuality();
                 } else if (adReloadBurstCount === 4) {
-                    // 3 API റീലോഡിലും പരസ്യം പോയില്ലെങ്കിൽ IFrame തന്നെ പുതിയ സെഷനായി ഹാർഡ്-റീലോഡ് ചെയ്യുന്നു
                     const iframe = document.getElementById('tv-player');
                     if (iframe && currentIndex !== -1) {
                         const originParam = location.origin && location.origin !== 'null' ? `&origin=${encodeURIComponent(location.origin)}` : '';
-                        iframe.src = `https://www.youtube-nocookie.com/embed/${expectedId}?autoplay=1&mute=1&enablejsapi=1&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&_r=${Date.now()}${originParam}`;
+                        iframe.src = `https://www.youtube-nocookie.com/embed/${expectedId}?autoplay=1&mute=1&enablejsapi=1&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&vq=hd1080&_r=${Date.now()}${originParam}`;
                     }
                 } else {
                     adReloadBurstCount = 0;
@@ -1198,8 +1309,48 @@
             }
         }
 
-        // നേരിട്ടുള്ള .m3u8 സ്ട്രീം HTML5 വീഡിയോ പ്ലെയറിൽ തത്സമയ പോയിന്റിൽ (Live Edge) പ്ലേ ചെയ്യുന്നു
-        function playSingleHlsUrl(hlsUrl, session, timeoutMs = 2500) {
+        // 2x Speed Pre-Flight HD Check: സ്ട്രീം 1080p/720p HD ആണോ എന്ന് സെക്കൻഡിനുള്ളിൽ പരിശോധിക്കുന്നു
+        async function verifyFastHdManifest(url, requireStrictHd, timeoutMs = 950) {
+            if (verifiedHdUrls[url]) return url;
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), timeoutMs);
+            try {
+                const res = await fetch(url, { signal: controller.signal });
+                clearTimeout(timer);
+                if (!res.ok) throw new Error("HTTP error");
+                const text = await res.text();
+                if (!text.includes("#EXTM3U")) throw new Error("Invalid M3U8");
+
+                if (requireStrictHd && text.includes("RESOLUTION=")) {
+                    const resMatches = [...text.matchAll(/RESOLUTION=(\d+)x(\d+)/g)];
+                    if (resMatches.length > 0) {
+                        let maxH = 0;
+                        resMatches.forEach(m => {
+                            const w = parseInt(m[1], 10);
+                            const h = parseInt(m[2], 10);
+                            const effectiveHeight = Math.min(w, h);
+                            if (effectiveHeight > maxH) maxH = effectiveHeight;
+                        });
+                        if (maxH > 0 && maxH < 720) {
+                            throw new Error("Stream is SD (<720p)");
+                        }
+                    }
+                }
+                verifiedHdUrls[url] = true;
+                return url;
+            } catch (err) {
+                clearTimeout(timer);
+                if (err && err.message === "Stream is SD (<720p)") {
+                    failedOfficialHls[url] = Date.now();
+                    throw err;
+                }
+                // CORS നിയന്ത്രണമുള്ള സെർവറുകൾക്ക് നേരിട്ട് HLS.js വഴി പരിശോധിക്കാൻ അനുവദിക്കുന്നു
+                return url;
+            }
+        }
+
+        // Strict 1080p HD HLS Stream Loader (2x Ultra-Fast Startup Tuning)
+        function playSingleHlsUrl(hlsUrl, session, requireStrictHd = true, timeoutMs = 1100) {
             return new Promise((resolve, reject) => {
                 if (session !== playSessionId) return reject();
                 const videoEl = document.getElementById('hls-player');
@@ -1212,12 +1363,19 @@
                     hlsInstance = new Hls({
                         enableWorker: true,
                         lowLatencyMode: true,
-                        liveSyncDurationCount: 2,
-                        liveMaxLatencyDurationCount: 4,
-                        backBufferLength: 10,
+                        liveSyncDurationCount: 1.5, // 2x Faster Live Start
+                        liveMaxLatencyDurationCount: 3,
+                        maxBufferLength: 6,
+                        maxMaxBufferLength: 12,
+                        backBufferLength: 4,
+                        startFragPrefetch: true, // അടുത്ത ഫ്രെയിം മുൻകൂട്ടി ലോഡ് ചെയ്യുന്നു
+                        startLevel: -1,
+                        capLevelToPlayerSize: false, // ഏത് സ്ക്രീനിലും 1080p ഉറപ്പാക്കുന്നു
+                        abrEwmaDefaultEstimate: 50000000, // 50 Mbps പ്രാരംഭ ബാൻഡ്‌വിഡ്ത്ത് നൽകി ആദ്യ ഫ്രെയിം മുതൽ 1080p ഫോഴ്സ് ചെയ്യുന്നു
                         manifestLoadingTimeOut: timeoutMs,
                         manifestLoadingMaxRetry: 0,
-                        levelLoadingTimeOut: timeoutMs
+                        levelLoadingTimeOut: timeoutMs,
+                        fragLoadingTimeOut: 2000
                     });
 
                     let resolved = false;
@@ -1237,7 +1395,41 @@
                             stopHlsPlayer();
                             return reject();
                         }
+
+                        // ഏറ്റവും ഉയർന്ന 1080p/720p റെസല്യൂഷനും ബിറ്റ്റേറ്റും ഉള്ള ലെവലിൽ ഹാർഡ്-ലോക്ക് ചെയ്യുന്നു
+                        let bestLevel = -1;
+                        let maxHeight = 0;
+                        let maxBitrate = 0;
+
+                        if (hlsInstance.levels && hlsInstance.levels.length > 0) {
+                            hlsInstance.levels.forEach((lvl, idx) => {
+                                const h = lvl.height || 0;
+                                const b = lvl.bitrate || 0;
+                                if (h > maxHeight || (h === maxHeight && b > maxBitrate)) {
+                                    maxHeight = h;
+                                    maxBitrate = b;
+                                    bestLevel = idx;
+                                }
+                            });
+
+                            // SD ക്വാളിറ്റി (<720p) മാത്രമുള്ള ലിങ്ക് ആണെങ്കിൽ ഉടൻ ഒഴിവാക്കി 1080p സ്ട്രീമിലേക്ക് മാറ്റുന്നു
+                            if (requireStrictHd && maxHeight > 0 && maxHeight < 720) {
+                                clearTimeout(failTimer);
+                                stopHlsPlayer();
+                                failedOfficialHls[hlsUrl] = Date.now();
+                                return reject(new Error("Stream is SD (<720p)"));
+                            }
+
+                            if (bestLevel !== -1) {
+                                hlsInstance.startLevel = bestLevel;
+                                hlsInstance.currentLevel = bestLevel;
+                                hlsInstance.nextLevel = bestLevel;
+                                hlsInstance.loadLevel = bestLevel;
+                            }
+                        }
+
                         resolved = true;
+                        verifiedHdUrls[hlsUrl] = true;
                         clearTimeout(failTimer);
                         usingHls = true;
                         stopYouTubeApiPolling();
@@ -1254,6 +1446,27 @@
                         resolve(true);
                     });
 
+                    // പ്ലേ ആകുന്നതിനിടയിൽ ക്വാളിറ്റി 1080p-ൽ നിന്ന് താഴാതിരിക്കാൻ Hard Lock നിലനിർത്തുന്നു
+                    hlsInstance.on(Hls.Events.LEVEL_SWITCHED, (event, data) => {
+                        if (!hlsInstance || !hlsInstance.levels || hlsInstance.levels.length <= 1) return;
+                        let bestIdx = 0;
+                        let maxH = 0;
+                        let maxB = 0;
+                        hlsInstance.levels.forEach((lvl, idx) => {
+                            const h = lvl.height || 0;
+                            const b = lvl.bitrate || 0;
+                            if (h > maxH || (h === maxH && b > maxB)) {
+                                maxH = h;
+                                maxB = b;
+                                bestIdx = idx;
+                            }
+                        });
+                        if (data.level !== bestIdx) {
+                            hlsInstance.currentLevel = bestIdx;
+                            hlsInstance.nextLevel = bestIdx;
+                        }
+                    });
+
                     hlsInstance.on(Hls.Events.ERROR, (event, data) => {
                         if (data.fatal) {
                             clearTimeout(failTimer);
@@ -1261,7 +1474,8 @@
                             if (!resolved) {
                                 reject(new Error("HLS fatal error"));
                             } else if (session === playSessionId && currentIndex !== -1) {
-                                loadYouTubeEmbed(channels[currentIndex], false);
+                                failedOfficialHls[hlsUrl] = Date.now();
+                                playChannel(currentIndex, false);
                             }
                         }
                     });
@@ -1310,26 +1524,66 @@
             });
         }
 
-        // ചാനലിന്റെ ഔദ്യോഗിക HLS ലിങ്കുകൾ ഓരോന്നായി പരിശോധിച്ച് പ്രവർത്തിക്കുന്നവ പ്ലേ ചെയ്യുന്നു
+        // 2x Speed Parallel Stream Selector: ലഭ്യമായ HD ലിങ്കുകൾ ഒരേസമയം പരിശോധിച്ച് ഏറ്റവും വേഗതയുള്ളത് തിരഞ്ഞെടുക്കുന്നു
         async function tryOfficialHlsStreams(channel, session) {
-            if (!channel.hlsUrls || channel.hlsUrls.length === 0) return false;
+            const candidateEntries = [];
+            
+            // 1. GitHub Action വഴി ലഭിക്കുന്ന 1080p YouTube HD m3u8 ലിങ്ക്
+            if (channel.streamKey && githubStreams[channel.streamKey]) {
+                const ghEntry = githubStreams[channel.streamKey];
+                const ghUrl = typeof ghEntry === 'string' ? ghEntry : (ghEntry && ghEntry.url ? ghEntry.url : null);
+                if (ghUrl) candidateEntries.push({ url: ghUrl, strictHd: true });
+            }
 
-            for (const url of channel.hlsUrls) {
+            // 2. ബാക്കപ്പ് HD HLS ലിങ്കുകൾ (എല്ലാ ചാനലുകൾക്കും ഒരേപോലെ HD പരിശോധന)
+            if (channel.hlsUrls && channel.hlsUrls.length > 0) {
+                channel.hlsUrls.forEach(u => {
+                    if (!candidateEntries.some(e => e.url === u)) {
+                        candidateEntries.push({ url: u, strictHd: true });
+                    }
+                });
+            }
+
+            const activeCandidates = candidateEntries.filter(item => {
+                return !(failedOfficialHls[item.url] && (Date.now() - failedOfficialHls[item.url] < 300000));
+            });
+
+            if (activeCandidates.length === 0) return false;
+
+            // Parallel Pre-Flight Race: എല്ലാ ലിങ്കുകളും ഒരുമിച്ച് കാത്തിരിപ്പില്ലാതെ പരിശോധിക്കുന്നു
+            let orderedCandidates = activeCandidates;
+            if (activeCandidates.length > 1) {
+                try {
+                    const fastestHdItem = await Promise.any(
+                        activeCandidates.map(async (item) => {
+                            await verifyFastHdManifest(item.url, item.strictHd, 900);
+                            return item;
+                        })
+                    );
+                    orderedCandidates = [
+                        fastestHdItem,
+                        ...activeCandidates.filter(i => i.url !== fastestHdItem.url && !failedOfficialHls[i.url])
+                    ];
+                } catch (e) {
+                    orderedCandidates = activeCandidates.filter(i => !failedOfficialHls[i.url]);
+                }
+            }
+
+            for (const item of orderedCandidates) {
                 if (session !== playSessionId) return false;
-                if (failedOfficialHls[url] && (Date.now() - failedOfficialHls[url] < 300000)) {
+                if (failedOfficialHls[item.url] && (Date.now() - failedOfficialHls[item.url] < 300000)) {
                     continue;
                 }
                 try {
-                    await playSingleHlsUrl(url, session, 2400);
+                    await playSingleHlsUrl(item.url, session, item.strictHd, 1100);
                     return true;
                 } catch (e) {
-                    failedOfficialHls[url] = Date.now();
+                    failedOfficialHls[item.url] = Date.now();
                 }
             }
             return false;
         }
 
-        // YouTube IFrame-ൽ തത്സമയ ലൈവ് എഡ്ജിൽ (Real-Time Live Edge) ലോഡ് ചെയ്യുന്നു
         function loadYouTubeEmbed(channel, forceIframeReload = false) {
             if (usingHls) return;
             const iframe = document.getElementById('tv-player');
@@ -1341,20 +1595,23 @@
             startYouTubeApiPolling();
 
             if (playerReady && !forceIframeReload && iframe.src && iframe.src.includes('/embed/')) {
-                sendPlayerCommand('loadVideoById', [channel.liveVideoId]);
+                sendPlayerCommand('loadVideoById', [{
+                    videoId: channel.liveVideoId,
+                    suggestedQuality: 'hd1080'
+                }]);
                 setTimeout(() => {
                     if (!isAdPlaying) {
                         sendPlayerCommand(isMuted ? 'mute' : 'unMute');
                     }
                     sendPlayerCommand('playVideo');
-                }, 90);
+                    enforceYouTubeHighQuality();
+                }, 40);
             } else {
                 const originParam = location.origin && location.origin !== 'null' ? `&origin=${encodeURIComponent(location.origin)}` : '';
-                iframe.src = `https://www.youtube-nocookie.com/embed/${channel.liveVideoId}?autoplay=1&mute=${muteParam}&enablejsapi=1&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3${originParam}`;
+                iframe.src = `https://www.youtube-nocookie.com/embed/${channel.liveVideoId}?autoplay=1&mute=${muteParam}&enablejsapi=1&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&vq=hd1080${originParam}`;
             }
         }
 
-        // Hybrid Play Function: 1. Official HLS -> 2. YouTube Live Fallback + Multi-Reload Ad-Killer
         async function playChannel(index, forceIframeReload = false) {
             currentIndex = index;
             const session = ++playSessionId;
@@ -1365,29 +1622,37 @@
                 playerBox.style.display = "block";
             }
 
+            // MediaOne (id: 4) ആണെങ്കിൽ 20:9 സ്ട്രെച്ച് മോഡിൽ ബോർഡർ ഇല്ലാതെ നിറഞ്ഞുനിൽക്കാൻ പ്രത്യേക ക്ലാസ് ചേർക്കുന്നു
+            playerBox.classList.toggle('ch-mediaone', channel.id === 4);
+
             setAdShieldState(false);
             adReloadBurstCount = 0;
             requestWakeLock();
             updateFsActiveIcon();
             updateToastUI();
 
-            // ഘട്ടം 1: ചാനലിന് ഔദ്യോഗിക HLS (.m3u8) ഉണ്ടെങ്കിൽ ആദ്യം അത് പരീക്ഷിക്കുന്നു (100% Ad-Free)
+            // News18 Live ID പശ്ചാത്തലത്തിൽ സമാന്തരമായി (Non-blocking) ഫെച്ച് ചെയ്യുന്നു
+            let news18WorkerPromise = null;
+            if (channel.id === 8) {
+                news18WorkerPromise = fetchWithTimeout(`https://news18-live-fetcher.shamsushaz14.workers.dev?t=${Date.now()}`, 1200)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data && data.videoId && !expiredIds.includes(data.videoId)) {
+                            channel.liveVideoId = data.videoId;
+                            savedLiveIds[channel.id] = data.videoId;
+                            localStorage.setItem('news_tv_live_ids', JSON.stringify(savedLiveIds));
+                        }
+                    })
+                    .catch(() => {});
+            }
+
             const hlsSuccess = await tryOfficialHlsStreams(channel, session);
             if (session !== playSessionId || hlsSuccess) return;
 
-            // ഘട്ടം 2: ഔദ്യോഗിക HLS ലഭ്യമല്ലെങ്കിൽ ഉടൻ YouTube Live Fallback-ലേക്ക് മാറുന്നു
             stopHlsPlayer();
 
-            if (channel.id === 8) {
-                try {
-                    const response = await fetchWithTimeout(`https://news18-live-fetcher.shamsushaz14.workers.dev?t=${Date.now()}`, 2800);
-                    const data = await response.json();
-                    if (data.videoId && !expiredIds.includes(data.videoId)) {
-                        channel.liveVideoId = data.videoId;
-                        savedLiveIds[channel.id] = data.videoId;
-                        localStorage.setItem('news_tv_live_ids', JSON.stringify(savedLiveIds));
-                    }
-                } catch (err) {}
+            if (news18WorkerPromise) {
+                await news18WorkerPromise;
             }
 
             if (session !== playSessionId) return;
@@ -1584,7 +1849,6 @@
             }
         }
 
-        // YouTube IFrame API Listener + Duration-Based & ID-Based Ad-Detection
         const iframeEl = document.getElementById('tv-player');
         if (iframeEl) {
             iframeEl.addEventListener('load', () => {
@@ -1595,6 +1859,7 @@
                             event: 'listening',
                             id: 1
                         }), '*');
+                        setTimeout(enforceYouTubeHighQuality, 100);
                     }
                 } catch (e) {}
             });
@@ -1614,16 +1879,12 @@
                     const dur = info.duration;
                     const cur = info.currentTime;
 
-                    // 1. Video ID Mismatch Detection (പരസ്യത്തിന്റെ വേറെ Video ID ആണെങ്കിൽ)
                     const isMismatchedAdId = Boolean(playingId && expectedId && playingId !== expectedId);
-
-                    // 2. Duration-Based Pre-Roll Ad Detection (ലൈവ് സ്ട്രീമുകൾക്ക് പകരം 1 മുതൽ 180 സെക്കൻഡ് വരെയുള്ള പരസ്യമാണെങ്കിൽ)
                     const isShortAdDuration = Boolean(typeof dur === 'number' && dur > 0 && dur <= 180);
 
                     if (isMismatchedAdId || isShortAdDuration) {
                         triggerAggressiveAdBypass(expectedId, dur, cur);
                     } else if (playingId === expectedId && (typeof dur !== 'number' || dur === 0 || dur > 180)) {
-                        // യഥാർത്ഥ ചാനൽ ലൈവ് സ്ട്രീമിൽ എത്തിയ ഉടൻ ബ്ലാക്ക്ഔട്ട് മാറ്റി തത്സമയ വാർത്ത കാണിക്കുന്നു
                         if (isAdPlaying) {
                             setAdShieldState(false);
                         }
@@ -1643,7 +1904,7 @@
             } catch (e) {}
         });
 
-        async function fetchWithTimeout(url, timeoutMs = 5500) {
+        async function fetchWithTimeout(url, timeoutMs = 3500) {
             const controller = new AbortController();
             const timer = setTimeout(() => controller.abort(), timeoutMs);
             try {
@@ -1657,8 +1918,15 @@
             }
         }
 
-        function extractLiveVideoId(html, oldVideoId = "", isDirectChannelPage = false) {
+        function extractLiveVideoId(html, oldVideoId = "", isDirectChannelPage = false, channel = null) {
             if (!html) return null;
+
+            if (channel && channel.excludeMatch) {
+                const pageTitleMatch = html.match(/<title>(.*?)<\/title>/i);
+                if (pageTitleMatch && channel.excludeMatch.test(pageTitleMatch[1])) {
+                    return null;
+                }
+            }
 
             const strictLivePatterns = [
                 /"videoId":"([a-zA-Z0-9_-]{11})"[^}]{0,500}?"isLiveNow":true/g,
@@ -1677,11 +1945,15 @@
                 );
             }
 
+            const otherChannelIds = channels
+                .filter(c => !channel || c.id !== channel.id)
+                .map(c => c.liveVideoId);
+
             for (const regex of strictLivePatterns) {
                 let match;
                 while ((match = regex.exec(html)) !== null) {
                     const id = match[1];
-                    if (id && id !== oldVideoId && !expiredIds.includes(id)) {
+                    if (id && id !== oldVideoId && !expiredIds.includes(id) && !otherChannelIds.includes(id)) {
                         return id;
                     }
                 }
@@ -1690,7 +1962,7 @@
             return null;
         }
 
-        async function fetchFromWebProxies(targetUrl, oldVideoId, isDirectChannelPage = false) {
+        async function fetchFromWebProxies(targetUrl, oldVideoId, isDirectChannelPage = false, channel = null) {
             const cb = `_cb=${Date.now()}`;
             const urlWithCache = targetUrl.includes('?') ? `${targetUrl}&${cb}` : `${targetUrl}?${cb}`;
             const encUrl = encodeURIComponent(urlWithCache);
@@ -1704,7 +1976,7 @@
             ];
 
             const proxyTasks = proxyUrls.map(async (p) => {
-                const res = await fetchWithTimeout(p.url, 5500);
+                const res = await fetchWithTimeout(p.url, 3500);
                 let html = "";
                 if (p.type === 'json') {
                     const data = await res.json();
@@ -1712,7 +1984,7 @@
                 } else {
                     html = await res.text();
                 }
-                const id = extractLiveVideoId(html, oldVideoId, isDirectChannelPage);
+                const id = extractLiveVideoId(html, oldVideoId, isDirectChannelPage, channel);
                 if (id) return id;
                 throw new Error("No valid Live ID found");
             });
@@ -1722,6 +1994,7 @@
 
         async function fetchFromSearchAPIs(channel, oldVideoId) {
             const q = encodeURIComponent(channel.searchQuery || `${channel.name} Malayalam Live`);
+            const otherChannelIds = channels.filter(c => c.id !== channel.id).map(c => c.liveVideoId);
             
             const isValidChannelMatch = (title = "", author = "") => {
                 const combined = `${title} ${author}`;
@@ -1747,13 +2020,13 @@
 
             pipedInstances.forEach(base => {
                 tasks.push((async () => {
-                    const res = await fetchWithTimeout(`${base}/search?q=${q}&filter=livestreams`, 5000);
+                    const res = await fetchWithTimeout(`${base}/search?q=${q}&filter=livestreams`, 3200);
                     const data = await res.json();
                     if (data && Array.isArray(data.items)) {
                         for (const item of data.items) {
                             if (item.url && isValidChannelMatch(item.title, item.uploaderName)) {
                                 const m = item.url.match(/v=([a-zA-Z0-9_-]{11})/);
-                                if (m && m[1] && m[1] !== oldVideoId && !expiredIds.includes(m[1])) {
+                                if (m && m[1] && m[1] !== oldVideoId && !expiredIds.includes(m[1]) && !otherChannelIds.includes(m[1])) {
                                     return m[1];
                                 }
                             }
@@ -1765,13 +2038,14 @@
 
             invidiousInstances.forEach(base => {
                 tasks.push((async () => {
-                    const res = await fetchWithTimeout(`${base}/api/v1/search?q=${q}&type=video&features=live`, 5000);
+                    const res = await fetchWithTimeout(`${base}/api/v1/search?q=${q}&type=video&features=live`, 3200);
                     const data = await res.json();
                     if (Array.isArray(data)) {
                         const valid = data.find(v => 
                             v.videoId && 
                             v.videoId !== oldVideoId && 
                             !expiredIds.includes(v.videoId) && 
+                            !otherChannelIds.includes(v.videoId) &&
                             isValidChannelMatch(v.title, v.author)
                         );
                         if (valid) return valid.videoId;
@@ -1788,7 +2062,7 @@
             const rssUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
             const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`;
 
-            const res = await fetchWithTimeout(apiUrl, 4500);
+            const res = await fetchWithTimeout(apiUrl, 3000);
             const data = await res.json();
             if (data && Array.isArray(data.items) && data.items.length > 0) {
                 const liveItem = data.items.find(item => {
@@ -1808,37 +2082,29 @@
         async function findLatestLiveVideoId(channel) {
             const oldId = channel.liveVideoId;
 
-            const stage1Promises = [];
+            const allPromises = [];
             if (channel.handle) {
-                stage1Promises.push(fetchFromWebProxies(`https://www.youtube.com/${channel.handle}/live`, oldId, true));
-                stage1Promises.push(fetchFromWebProxies(`https://www.youtube.com/${channel.handle}/streams`, oldId, false));
+                allPromises.push(fetchFromWebProxies(`https://www.youtube.com/${channel.handle}/live`, oldId, true, channel));
+                allPromises.push(fetchFromWebProxies(`https://www.youtube.com/${channel.handle}/streams`, oldId, false, channel));
             }
             if (channel.altHandle) {
-                stage1Promises.push(fetchFromWebProxies(`https://www.youtube.com/${channel.altHandle}/live`, oldId, true));
-                stage1Promises.push(fetchFromWebProxies(`https://www.youtube.com/${channel.altHandle}/streams`, oldId, false));
+                allPromises.push(fetchFromWebProxies(`https://www.youtube.com/${channel.altHandle}/live`, oldId, true, channel));
             }
             if (channel.channelId) {
-                stage1Promises.push(fetchFromWebProxies(`https://www.youtube.com/channel/${channel.channelId}/live`, oldId, true));
-                stage1Promises.push(fetchFromYouTubeRSS(channel.channelId, oldId));
+                allPromises.push(fetchFromWebProxies(`https://www.youtube.com/channel/${channel.channelId}/live`, oldId, true, channel));
+                allPromises.push(fetchFromYouTubeRSS(channel.channelId, oldId));
+            }
+            allPromises.push(fetchFromSearchAPIs(channel, oldId));
+
+            if (channel.id !== 6) {
+                const queryText = channel.searchQuery || `${channel.name} Malayalam Live`;
+                const ytLiveSearchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(queryText)}&sp=EgJAAQ%253D%253D`;
+                allPromises.push(fetchFromWebProxies(ytLiveSearchUrl, oldId, false, channel));
             }
 
             try {
-                if (stage1Promises.length > 0) {
-                    const directId = await Promise.any(stage1Promises);
-                    if (directId) return directId;
-                }
-            } catch (e) {}
-
-            const stage2Promises = [];
-            const queryText = channel.searchQuery || `${channel.name} Malayalam Live`;
-            const ytLiveSearchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(queryText)}&sp=EgJAAQ%253D%253D`;
-            
-            stage2Promises.push(fetchFromSearchAPIs(channel, oldId));
-            stage2Promises.push(fetchFromWebProxies(ytLiveSearchUrl, oldId, false));
-
-            try {
-                const searchId = await Promise.any(stage2Promises);
-                if (searchId) return searchId;
+                const fastestId = await Promise.any(allPromises);
+                if (fastestId) return fastestId;
             } catch (e) {}
 
             return null;
@@ -1861,13 +2127,20 @@
             const unmuteToast = document.getElementById('center-unmute-toast');
             const toastText = document.getElementById('toast-text');
             if (unmuteToast && toastText) {
-                toastText.innerText = "പുതിയ ലൈവ് തിരയുന്നു...";
+                toastText.innerText = "പുതിയ 1080p ലൈവ് തിരയുന്നു...";
                 unmuteToast.style.display = 'flex';
             }
 
             const currentChannel = channels[currentIndex];
             const previousVideoId = currentChannel.liveVideoId;
 
+            await loadGitHubActionStreams();
+
+            if (currentChannel.streamKey && githubStreams[currentChannel.streamKey]) {
+                const ghEntry = githubStreams[currentChannel.streamKey];
+                const ghUrl = typeof ghEntry === 'string' ? ghEntry : (ghEntry && ghEntry.url ? ghEntry.url : null);
+                if (ghUrl) delete failedOfficialHls[ghUrl];
+            }
             if (currentChannel.hlsUrls) {
                 currentChannel.hlsUrls.forEach(u => delete failedOfficialHls[u]);
             }
@@ -1877,7 +2150,7 @@
 
                 if (currentChannel.id === 8) {
                     try {
-                        const response = await fetchWithTimeout(`https://news18-live-fetcher.shamsushaz14.workers.dev?t=${Date.now()}`, 4000);
+                        const response = await fetchWithTimeout(`https://news18-live-fetcher.shamsushaz14.workers.dev?t=${Date.now()}`, 2200);
                         const data = await response.json();
                         if (data.videoId && data.videoId !== previousVideoId && !expiredIds.includes(data.videoId)) {
                             newVideoId = data.videoId;
@@ -1900,7 +2173,7 @@
                 playChannel(currentIndex, false);
                 setTimeout(() => {
                     refreshIcon.classList.remove('spin-icon');
-                }, 600);
+                }, 400);
             }
         }
 
@@ -2114,7 +2387,10 @@
 
             buildGrid();
             buildFsChannelList();
+
+            // 2x Instant Start: കാത്തിരിപ്പില്ലാതെ ഉടൻ ആദ്യ ചാനൽ പ്ലേ ചെയ്യുന്നു, സമാന്തരമായി പുതിയ GitHub സ്ട്രീമുകൾ അപ്ഡേറ്റ് ചെയ്യുന്നു
             playChannel(0, true);
+            loadGitHubActionStreams();
 
             const swipeOverlay = document.getElementById('swipe-overlay');
             if (swipeOverlay) {
