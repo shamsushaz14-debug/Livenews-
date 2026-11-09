@@ -17,7 +17,7 @@
     <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/2989/2989932.png" type="image/png">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2989/2989932.png">
     
-    <!-- 2x Speed Boost: Preconnect to Fonts & Streaming CDNs -->
+    <!-- Preconnect to Fonts & Streaming CDNs -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
@@ -236,10 +236,10 @@
             flex-grow: 1;
         }
 
-        /* Player Box (Normal Mode - Uniform 16:9) */
+        /* Player Box (Normal Mode - Uniform 16:9 - Shown immediately for Zero Startup Lag) */
         .player-container {
             width: 100%;
-            display: none;
+            display: block;
             margin-bottom: 15px;
             border-radius: 12px;
             overflow: hidden;
@@ -247,6 +247,7 @@
             position: relative;
             box-shadow: 0 4px 15px rgba(0,0,0,0.8);
             border: 1.5px solid var(--border-color);
+            transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), border-radius 0.35s ease;
         }
 
         .video-wrapper {
@@ -256,10 +257,27 @@
             background: #000;
             width: 100%;
             overflow: hidden;
+            transition: opacity 0.18s cubic-bezier(0.22, 1, 0.36, 1), transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+            will-change: opacity, transform;
+        }
+
+        /* Ultra-Fast Cinematic Channel Switch Crossfade + Subtle Zoom Transition */
+        .video-wrapper.ch-switching {
+            opacity: 0.32;
+            transform: scale(0.985);
+        }
+
+        .video-wrapper.ch-switched-in {
+            animation: cinematic-pop-in 0.22s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        @keyframes cinematic-pop-in {
+            0% { opacity: 0.4; transform: scale(1.015); filter: brightness(1.1); }
+            100% { opacity: 1; transform: scale(1); filter: brightness(1); }
         }
 
         .video-wrapper iframe,
-        .video-wrapper video {
+        .video-wrapper video.main-player {
             position: absolute;
             top: 0;
             left: 0;
@@ -271,10 +289,78 @@
             transform-origin: center center;
         }
 
+        /* Hidden Preload Video Buffers */
+        .preload-video-buffer {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            opacity: 0;
+            pointer-events: none;
+            z-index: -10;
+            left: -9999px;
+            top: -9999px;
+        }
+
         /* MediaOne Normal Mode Black-Bar Crop Fix */
-        .player-container.ch-mediaone .video-wrapper video,
+        .player-container.ch-mediaone .video-wrapper video.main-player,
         .player-container.ch-mediaone .video-wrapper iframe {
             transform: scale(1.04, 1.03);
+        }
+
+        /* Cinematic Channel Info OSD Banner (Top-Left) */
+        .channel-osd-banner {
+            position: absolute;
+            top: max(12px, env(safe-area-inset-top));
+            left: max(12px, env(safe-area-inset-left));
+            z-index: 2147483647;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(15, 18, 22, 0.72);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            padding: 5px 12px 5px 6px;
+            border-radius: 30px;
+            border: 1px solid rgba(6, 148, 148, 0.55);
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6);
+            pointer-events: none;
+            opacity: 0;
+            transform: translateY(-10px) scale(0.95);
+            transition: opacity 0.22s cubic-bezier(0.22, 1, 0.36, 1), transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .channel-osd-banner.show {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+
+        .channel-osd-logo {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #fff;
+            object-fit: cover;
+            padding: 1.5px;
+            border: 1px solid var(--primary-teal);
+        }
+
+        .channel-osd-text {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .channel-osd-name {
+            color: #fff;
+            font-size: 0.78rem;
+            font-weight: 700;
+            line-height: 1.1;
+        }
+
+        .channel-osd-status {
+            color: var(--primary-teal);
+            font-size: 0.62rem;
+            font-weight: 700;
+            letter-spacing: 0.3px;
         }
 
         /* Ad-Shield Blackout Overlay */
@@ -316,7 +402,7 @@
             color: #999;
         }
 
-        /* Fullscreen Mode: Default Strict 16:9 Landscape */
+        /* Fullscreen Mode: Cinematic Entrance/Exit & Strict 16:9 Landscape */
         .player-container.fullscreen-mode {
             position: fixed !important;
             top: 0 !important;
@@ -334,6 +420,21 @@
             justify-content: center !important;
             background: #000 !important;
             border: none !important;
+            animation: fs-cinematic-enter 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        .player-container.fs-exiting {
+            animation: fs-cinematic-exit 0.22s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        @keyframes fs-cinematic-enter {
+            0% { opacity: 0.65; transform: scale(0.96); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        @keyframes fs-cinematic-exit {
+            0% { opacity: 0.85; transform: scale(1.02); }
+            100% { opacity: 1; transform: scale(1); }
         }
 
         .player-container.fullscreen-mode .video-wrapper {
@@ -347,8 +448,13 @@
             overflow: hidden !important;
         }
 
+        .player-container.fullscreen-mode .video-wrapper.ch-switching {
+            opacity: 0.32 !important;
+            transform: translate(-50%, -50%) scale(0.985) !important;
+        }
+
         .player-container.fullscreen-mode .video-wrapper iframe,
-        .player-container.fullscreen-mode .video-wrapper video {
+        .player-container.fullscreen-mode .video-wrapper video.main-player {
             width: 100% !important;
             height: 100% !important;
             position: absolute !important;
@@ -359,7 +465,7 @@
         }
 
         /* MediaOne 16:9 Fullscreen Border Crop Fix */
-        .player-container.fullscreen-mode.ch-mediaone:not(.ratio-stretch) .video-wrapper video,
+        .player-container.fullscreen-mode.ch-mediaone:not(.ratio-stretch) .video-wrapper video.main-player,
         .player-container.fullscreen-mode.ch-mediaone:not(.ratio-stretch) .video-wrapper iframe {
             transform: scale(1.04, 1.03) !important;
         }
@@ -376,7 +482,12 @@
             overflow: hidden !important;
         }
 
-        .player-container.fullscreen-mode.ratio-stretch .video-wrapper video {
+        .player-container.fullscreen-mode.ratio-stretch .video-wrapper.ch-switching {
+            opacity: 0.32 !important;
+            transform: scale(0.985) !important;
+        }
+
+        .player-container.fullscreen-mode.ratio-stretch .video-wrapper video.main-player {
             width: 100vw !important;
             height: 100vh !important;
             position: absolute !important;
@@ -396,7 +507,7 @@
         }
 
         /* MediaOne 20:9 Stretch Mode Special Fix */
-        .player-container.fullscreen-mode.ratio-stretch.ch-mediaone .video-wrapper video {
+        .player-container.fullscreen-mode.ratio-stretch.ch-mediaone .video-wrapper video.main-player {
             transform: scale(1.08, 1.06) !important;
             transform-origin: center center !important;
         }
@@ -496,7 +607,7 @@
             background: transparent;
         }
 
-        /* Fixed Positions with max() to prevent clipping */
+        /* Fullscreen Controls: Always Visible, Compact & Transparent */
         .ch-center-left, .ch-center-right {
             position: absolute;
             top: 50%;
@@ -505,8 +616,8 @@
             display: none;
         }
 
-        .ch-center-left { left: max(25px, env(safe-area-inset-left)); }
-        .ch-center-right { right: max(25px, env(safe-area-inset-right)); }
+        .ch-center-left { left: max(18px, env(safe-area-inset-left)); }
+        .ch-center-right { right: max(18px, env(safe-area-inset-right)); }
 
         .player-container.fullscreen-mode .ch-center-left,
         .player-container.fullscreen-mode .ch-center-right {
@@ -515,13 +626,13 @@
 
         .bottom-left-controls, .bottom-right-group {
             position: absolute;
-            bottom: max(25px, env(safe-area-inset-bottom));
+            bottom: max(18px, env(safe-area-inset-bottom));
             z-index: 2147483647;
             display: none;
         }
 
-        .bottom-left-controls { left: max(25px, env(safe-area-inset-left)); }
-        .bottom-right-group { right: max(25px, env(safe-area-inset-right)); gap: 12px; }
+        .bottom-left-controls { left: max(18px, env(safe-area-inset-left)); }
+        .bottom-right-group { right: max(18px, env(safe-area-inset-right)); gap: 10px; }
 
         .player-container.fullscreen-mode .bottom-left-controls,
         .player-container.fullscreen-mode .bottom-right-group {
@@ -529,91 +640,107 @@
             align-items: center;
         }
 
-        /* Button Adjustments */
+        /* Compact & Transparent Fullscreen Buttons (34px) */
         .fs-btn {
-            background-color: rgba(0, 0, 0, 0.75);
+            background-color: rgba(0, 0, 0, 0.25);
             color: white;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            padding: 10px 16px;
+            border: 1.5px solid rgba(255, 255, 255, 0.55);
+            padding: 8px 12px;
             border-radius: 20px;
-            font-size: 0.85rem;
+            font-size: 0.75rem;
             cursor: pointer;
             font-weight: bold;
             backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            transition: transform 0.2s ease, background-color 0.2s ease;
+        }
+
+        .fs-btn:active, .round-action-btn:active {
+            transform: scale(0.9);
         }
 
         .fs-btn.arrow-btn {
-            width: 42px;
-            height: 42px;
+            width: 34px;
+            height: 34px;
             padding: 0;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            border: 2px solid rgba(255, 255, 255, 0.75); 
-            background-color: rgba(0, 0, 0, 0.4);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+            border: 1.5px solid rgba(255, 255, 255, 0.55); 
+            background-color: rgba(0, 0, 0, 0.25);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
         }
-        .fs-btn.arrow-btn svg { width: 20px; height: 20px; }
+        .fs-btn.arrow-btn svg { width: 16px; height: 16px; }
 
         .fs-btn.mute-btn {
-            background-color: rgba(0, 0, 0, 0.4);
-            border: 2px solid rgba(255, 255, 255, 0.75);
-            width: 42px;
-            height: 42px;
+            background-color: rgba(0, 0, 0, 0.25);
+            border: 1.5px solid rgba(255, 255, 255, 0.55);
+            width: 34px;
+            height: 34px;
             border-radius: 50%;
             padding: 0;
             display: flex;
             align-items: center;
             justify-content: center;
             backdrop-filter: blur(4px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+            -webkit-backdrop-filter: blur(4px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
         }
-        .fs-btn.mute-btn svg { width: 20px; height: 20px; fill: #ffffff; }
+        .fs-btn.mute-btn svg { width: 16px; height: 16px; fill: #ffffff; }
 
         .round-action-btn {
-            width: 42px;
-            height: 42px;
+            width: 34px;
+            height: 34px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.75rem;
+            font-size: 0.65rem;
             font-weight: bold;
             cursor: pointer;
             backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
             border: none;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+            transition: transform 0.2s ease;
         }
 
         .stretch-btn-round { 
-            background-color: rgba(0, 0, 0, 0.4); 
+            background-color: rgba(0, 0, 0, 0.25); 
             color: #ffffff; 
-            border: 2px solid rgba(255, 255, 255, 0.75);
+            border: 1.5px solid rgba(255, 255, 255, 0.55);
         }
-        .stretch-btn-round svg { width: 18px; height: 18px; stroke: #ffffff; }
+        .stretch-btn-round svg { width: 15px; height: 15px; stroke: #ffffff; }
         
-        .bottom-exit-btn { background-color: var(--primary-teal); color: #ffffff; }
+        /* Exit Button: Keeps Original Teal Color, Sized to Match Compact Controls */
+        .bottom-exit-btn {
+            background-color: var(--primary-teal);
+            color: #ffffff;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.55);
+        }
 
-        /* Fullscreen Channel List */
+        /* Fullscreen Channel List (Shows on Tap, Auto-Hides after 3s) */
         .fs-channel-list {
             display: none;
             position: absolute;
-            bottom: max(15px, env(safe-area-inset-bottom)); 
+            bottom: max(14px, env(safe-area-inset-bottom)); 
             left: 50%;
-            transform: translateX(-50%);
-            gap: 12px;
+            transform: translate(-50%, 10px);
+            gap: 10px;
             z-index: 2147483647;
             opacity: 0;
             pointer-events: none;
-            transition: opacity 0.3s ease;
-            max-width: calc(100vw - 220px); 
+            transition: opacity 0.3s cubic-bezier(0.22, 1, 0.36, 1), transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+            max-width: calc(100vw - 190px); 
             overflow-x: auto;
-            padding: 10px 15px;
-            background: rgba(0, 0, 0, 0.6);
+            padding: 8px 14px;
+            background: rgba(0, 0, 0, 0.55);
             border-radius: 30px;
-            backdrop-filter: blur(5px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.65);
+            border: 1px solid rgba(255, 255, 255, 0.15);
         }
 
         .player-container.fullscreen-mode .fs-channel-list {
@@ -623,11 +750,12 @@
         .fs-channel-list.show {
             opacity: 1;
             pointer-events: auto;
+            transform: translate(-50%, 0);
         }
 
         .fs-channel-icon {
-            width: 40px;
-            height: 40px;
+            width: 36px;
+            height: 36px;
             border-radius: 50%;
             object-fit: cover;
             cursor: pointer;
@@ -635,11 +763,14 @@
             flex-shrink: 0;
             background-color: #ffffff;
             padding: 2px;
-            transition: transform 0.2s;
+            transition: transform 0.2s, border-color 0.2s;
         }
 
         .fs-channel-icon:active { transform: scale(0.9); }
-        .fs-channel-icon.active-ch { border-color: var(--primary-teal); }
+        .fs-channel-icon.active-ch {
+            border-color: var(--primary-teal);
+            transform: scale(1.08);
+        }
 
         .section-title {
             font-size: 1rem;
@@ -855,6 +986,15 @@
         <!-- Hybrid Player Box -->
         <div class="player-container" id="player-box">
             
+            <!-- Cinematic Channel OSD Pill (Shows on Switch) -->
+            <div class="channel-osd-banner" id="channel-osd-banner">
+                <img src="" id="channel-osd-logo" class="channel-osd-logo" alt="">
+                <div class="channel-osd-text">
+                    <span class="channel-osd-name" id="channel-osd-name">Channel</span>
+                    <span class="channel-osd-status" id="channel-osd-status">⚡ INSTANT 1080p HD</span>
+                </div>
+            </div>
+
             <!-- Ad-Shield Overlay -->
             <div class="ad-shield-overlay" id="ad-shield-overlay">
                 <div class="ad-shield-spinner"></div>
@@ -903,13 +1043,18 @@
 
             <div class="video-wrapper" id="video-wrapper">
                 <!-- 1. Primary Player: Strict 1080p HD HLS Video Player -->
-                <video id="hls-player" playsinline autoplay muted preload="auto" style="display:none;"></video>
+                <video id="hls-player" class="main-player" playsinline autoplay muted preload="auto" style="display:block;"></video>
                 
+                <!-- Hidden Preload Buffers for Instant Next/Prev Switching -->
+                <video id="preload-video-next" class="preload-video-buffer" playsinline muted preload="auto"></video>
+                <video id="preload-video-prev" class="preload-video-buffer" playsinline muted preload="auto"></video>
+
                 <!-- 2. Secondary Player: 1080p YouTube Live Player -->
                 <iframe id="tv-player"
                     src=""
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
-                    loading="eager">
+                    loading="eager"
+                    style="display:none;">
                 </iframe>
             </div>
 
@@ -959,7 +1104,7 @@
             });
         }
 
-        // എല്ലാ ചാനലുകൾക്കും ഒരേപോലെ 1080p HD മുൻഗണന (SD സ്ട്രീമുകൾ തനിയെ ഒഴിവാക്കി HD ലോക്ക് ചെയ്യുന്നു)
+        // എല്ലാ ചാനലുകൾക്കും ഒരേപോലെ 1080p HD മുൻഗണന
         const channels = [
             {
                 id: 0,
@@ -1112,7 +1257,7 @@
             }
         ];
 
-        const CACHE_VERSION = "v21_2026_11_08_2x_speed_uniform_1080p";
+        const CACHE_VERSION = "v24_2026_11_09_instant_switch_parallel_race";
         if (localStorage.getItem('news_tv_cache_ver') !== CACHE_VERSION) {
             localStorage.removeItem('news_tv_live_ids');
             localStorage.removeItem('news_tv_expired_ids');
@@ -1149,7 +1294,9 @@
         let favorites = JSON.parse(localStorage.getItem('news_tv_favs')) || [];
         let deferredPrompt = null;
         let wakeLock = null;
-        let fsChannelTimer;
+        let fsChannelTimer = null;
+        let osdBannerTimer = null;
+        let preloadScheduleTimer = null;
         let autoRecoverInProgress = false;
         let attemptedAutoRecover = {};
         let playerReady = false;
@@ -1164,12 +1311,24 @@
         let playSessionId = 0;
         let failedOfficialHls = {};
         let verifiedHdUrls = {};
+        let bestChannelHlsUrl = JSON.parse(localStorage.getItem('news_tv_best_hls')) || {};
         let githubStreams = JSON.parse(localStorage.getItem('news_tv_gh_streams')) || {};
+
+        function saveBestHlsCache() {
+            try {
+                localStorage.setItem('news_tv_best_hls', JSON.stringify(bestChannelHlsUrl));
+            } catch (e) {}
+        }
+
+        // Dual Preload Pool (Next & Previous Channels)
+        const preloadPool = {
+            next: { channelId: -1, url: null, hls: null, ready: false, videoElId: 'preload-video-next' },
+            prev: { channelId: -1, url: null, hls: null, ready: false, videoElId: 'preload-video-prev' }
+        };
 
         let hasShownSwipeHint = false; 
         let showTimeMode = true;
 
-        // 2x Speed: ഗിറ്റ്ഹബ്ബിൽ നിന്നും ഒരേസമയം (Parallel Race) streams.json അതിവേഗം ലോഡ് ചെയ്യുന്നു
         async function loadGitHubActionStreams() {
             const urlsToTry = [
                 `./streams.json?t=${Date.now()}`,
@@ -1178,7 +1337,7 @@
             try {
                 const fastestData = await Promise.any(urlsToTry.map(async (u) => {
                     const controller = new AbortController();
-                    const timer = setTimeout(() => controller.abort(), 1200);
+                    const timer = setTimeout(() => controller.abort(), 1100);
                     const res = await fetch(u, { cache: "no-store", signal: controller.signal });
                     clearTimeout(timer);
                     if (!res.ok) throw new Error("Not OK");
@@ -1204,7 +1363,6 @@
             }
         }
 
-        // YouTube പ്ലെയറിലും എല്ലായിപ്പോഴും 1080p HD ഫോഴ്സ് ചെയ്യുന്നു
         function enforceYouTubeHighQuality() {
             sendPlayerCommand('setPlaybackQualityRange', ['hd1080', 'hd1080']);
             sendPlayerCommand('setPlaybackQuality', ['hd1080']);
@@ -1294,9 +1452,13 @@
             }
         }
 
+        function getActiveMainVideoEl() {
+            return document.querySelector('#video-wrapper video.main-player') || document.getElementById('hls-player');
+        }
+
         function stopHlsPlayer() {
             usingHls = false;
-            const videoEl = document.getElementById('hls-player');
+            const videoEl = getActiveMainVideoEl();
             if (hlsInstance) {
                 try { hlsInstance.destroy(); } catch (e) {}
                 hlsInstance = null;
@@ -1309,8 +1471,53 @@
             }
         }
 
-        // 2x Speed Pre-Flight HD Check: സ്ട്രീം 1080p/720p HD ആണോ എന്ന് സെക്കൻഡിനുള്ളിൽ പരിശോധിക്കുന്നു
-        async function verifyFastHdManifest(url, requireStrictHd, timeoutMs = 950) {
+        function clearPreloadSlot(slotKey) {
+            const slot = preloadPool[slotKey];
+            if (!slot) return;
+            if (slot.hls) {
+                try { slot.hls.destroy(); } catch (e) {}
+                slot.hls = null;
+            }
+            const vEl = document.getElementById(slot.videoElId);
+            if (vEl) {
+                vEl.pause();
+                vEl.removeAttribute('src');
+                vEl.load();
+            }
+            slot.channelId = -1;
+            slot.url = null;
+            slot.ready = false;
+        }
+
+        function clearAllPreloads() {
+            clearTimeout(preloadScheduleTimer);
+            clearPreloadSlot('next');
+            clearPreloadSlot('prev');
+        }
+
+        function getCandidateHlsList(channel) {
+            const list = [];
+            if (bestChannelHlsUrl[channel.id] && !failedOfficialHls[bestChannelHlsUrl[channel.id]]) {
+                list.push({ url: bestChannelHlsUrl[channel.id], strictHd: true });
+            }
+            if (channel.streamKey && githubStreams[channel.streamKey]) {
+                const ghEntry = githubStreams[channel.streamKey];
+                const ghUrl = typeof ghEntry === 'string' ? ghEntry : (ghEntry && ghEntry.url ? ghEntry.url : null);
+                if (ghUrl && !list.some(i => i.url === ghUrl)) {
+                    list.push({ url: ghUrl, strictHd: true });
+                }
+            }
+            if (channel.hlsUrls && channel.hlsUrls.length > 0) {
+                channel.hlsUrls.forEach(u => {
+                    if (!list.some(i => i.url === u)) {
+                        list.push({ url: u, strictHd: true });
+                    }
+                });
+            }
+            return list.filter(item => !(failedOfficialHls[item.url] && (Date.now() - failedOfficialHls[item.url] < 180000)));
+        }
+
+        async function verifyFastHdManifest(url, requireStrictHd, timeoutMs = 600) {
             if (verifiedHdUrls[url]) return url;
             const controller = new AbortController();
             const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -1344,241 +1551,420 @@
                     failedOfficialHls[url] = Date.now();
                     throw err;
                 }
-                // CORS നിയന്ത്രണമുള്ള സെർവറുകൾക്ക് നേരിട്ട് HLS.js വഴി പരിശോധിക്കാൻ അനുവദിക്കുന്നു
                 return url;
             }
         }
 
-        // Strict 1080p HD HLS Stream Loader (2x Ultra-Fast Startup Tuning)
-        function playSingleHlsUrl(hlsUrl, session, requireStrictHd = true, timeoutMs = 1100) {
-            return new Promise((resolve, reject) => {
-                if (session !== playSessionId) return reject();
-                const videoEl = document.getElementById('hls-player');
-                const iframe = document.getElementById('tv-player');
+        function lockHlsHighestLevel(hlsObj, requireStrictHd = true) {
+            if (!hlsObj || !hlsObj.levels || hlsObj.levels.length === 0) return true;
+            let bestLevel = -1;
+            let maxHeight = 0;
+            let maxBitrate = 0;
 
-                if (!videoEl) return reject();
+            hlsObj.levels.forEach((lvl, idx) => {
+                const h = lvl.height || 0;
+                const b = lvl.bitrate || 0;
+                if (h > maxHeight || (h === maxHeight && b > maxBitrate)) {
+                    maxHeight = h;
+                    maxBitrate = b;
+                    bestLevel = idx;
+                }
+            });
 
-                if (window.Hls && Hls.isSupported()) {
+            if (requireStrictHd && maxHeight > 0 && maxHeight < 720) {
+                return false;
+            }
+
+            if (bestLevel !== -1) {
+                hlsObj.startLevel = bestLevel;
+                hlsObj.currentLevel = bestLevel;
+                hlsObj.nextLevel = bestLevel;
+                hlsObj.loadLevel = bestLevel;
+            }
+            return true;
+        }
+
+        function bindMainHlsEvents(hlsObj, hlsUrl, session) {
+            hlsObj.on(Hls.Events.LEVEL_SWITCHED, (event, data) => {
+                if (!hlsObj || !hlsObj.levels || hlsObj.levels.length <= 1) return;
+                let bestIdx = 0;
+                let maxH = 0;
+                let maxB = 0;
+                hlsObj.levels.forEach((lvl, idx) => {
+                    const h = lvl.height || 0;
+                    const b = lvl.bitrate || 0;
+                    if (h > maxH || (h === maxH && b > maxB)) {
+                        maxH = h;
+                        maxB = b;
+                        bestIdx = idx;
+                    }
+                });
+                if (data.level !== bestIdx) {
+                    hlsObj.currentLevel = bestIdx;
+                    hlsObj.nextLevel = bestIdx;
+                }
+            });
+
+            hlsObj.on(Hls.Events.ERROR, (event, data) => {
+                if (data.fatal && hlsInstance === hlsObj) {
                     stopHlsPlayer();
-                    hlsInstance = new Hls({
-                        enableWorker: true,
-                        lowLatencyMode: true,
-                        liveSyncDurationCount: 1.5, // 2x Faster Live Start
-                        liveMaxLatencyDurationCount: 3,
-                        maxBufferLength: 6,
-                        maxMaxBufferLength: 12,
-                        backBufferLength: 4,
-                        startFragPrefetch: true, // അടുത്ത ഫ്രെയിം മുൻകൂട്ടി ലോഡ് ചെയ്യുന്നു
-                        startLevel: -1,
-                        capLevelToPlayerSize: false, // ഏത് സ്ക്രീനിലും 1080p ഉറപ്പാക്കുന്നു
-                        abrEwmaDefaultEstimate: 50000000, // 50 Mbps പ്രാരംഭ ബാൻഡ്‌വിഡ്ത്ത് നൽകി ആദ്യ ഫ്രെയിം മുതൽ 1080p ഫോഴ്സ് ചെയ്യുന്നു
-                        manifestLoadingTimeOut: timeoutMs,
-                        manifestLoadingMaxRetry: 0,
-                        levelLoadingTimeOut: timeoutMs,
-                        fragLoadingTimeOut: 2000
-                    });
-
-                    let resolved = false;
-                    const failTimer = setTimeout(() => {
-                        if (!resolved) {
-                            stopHlsPlayer();
-                            reject(new Error("HLS timeout"));
+                    if (session === playSessionId && currentIndex !== -1) {
+                        failedOfficialHls[hlsUrl] = Date.now();
+                        if (bestChannelHlsUrl[channels[currentIndex].id] === hlsUrl) {
+                            delete bestChannelHlsUrl[channels[currentIndex].id];
+                            saveBestHlsCache();
                         }
-                    }, timeoutMs);
-
-                    hlsInstance.loadSource(hlsUrl);
-                    hlsInstance.attachMedia(videoEl);
-
-                    hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
-                        if (session !== playSessionId) {
-                            clearTimeout(failTimer);
-                            stopHlsPlayer();
-                            return reject();
-                        }
-
-                        // ഏറ്റവും ഉയർന്ന 1080p/720p റെസല്യൂഷനും ബിറ്റ്റേറ്റും ഉള്ള ലെവലിൽ ഹാർഡ്-ലോക്ക് ചെയ്യുന്നു
-                        let bestLevel = -1;
-                        let maxHeight = 0;
-                        let maxBitrate = 0;
-
-                        if (hlsInstance.levels && hlsInstance.levels.length > 0) {
-                            hlsInstance.levels.forEach((lvl, idx) => {
-                                const h = lvl.height || 0;
-                                const b = lvl.bitrate || 0;
-                                if (h > maxHeight || (h === maxHeight && b > maxBitrate)) {
-                                    maxHeight = h;
-                                    maxBitrate = b;
-                                    bestLevel = idx;
-                                }
-                            });
-
-                            // SD ക്വാളിറ്റി (<720p) മാത്രമുള്ള ലിങ്ക് ആണെങ്കിൽ ഉടൻ ഒഴിവാക്കി 1080p സ്ട്രീമിലേക്ക് മാറ്റുന്നു
-                            if (requireStrictHd && maxHeight > 0 && maxHeight < 720) {
-                                clearTimeout(failTimer);
-                                stopHlsPlayer();
-                                failedOfficialHls[hlsUrl] = Date.now();
-                                return reject(new Error("Stream is SD (<720p)"));
-                            }
-
-                            if (bestLevel !== -1) {
-                                hlsInstance.startLevel = bestLevel;
-                                hlsInstance.currentLevel = bestLevel;
-                                hlsInstance.nextLevel = bestLevel;
-                                hlsInstance.loadLevel = bestLevel;
-                            }
-                        }
-
-                        resolved = true;
-                        verifiedHdUrls[hlsUrl] = true;
-                        clearTimeout(failTimer);
-                        usingHls = true;
-                        stopYouTubeApiPolling();
-                        setAdShieldState(false);
-
-                        sendPlayerCommand('stopVideo');
-                        iframe.style.display = 'none';
-                        videoEl.style.display = 'block';
-                        videoEl.muted = isMuted;
-                        videoEl.play().catch(() => {
-                            videoEl.muted = true;
-                            videoEl.play().catch(() => {});
-                        });
-                        resolve(true);
-                    });
-
-                    // പ്ലേ ആകുന്നതിനിടയിൽ ക്വാളിറ്റി 1080p-ൽ നിന്ന് താഴാതിരിക്കാൻ Hard Lock നിലനിർത്തുന്നു
-                    hlsInstance.on(Hls.Events.LEVEL_SWITCHED, (event, data) => {
-                        if (!hlsInstance || !hlsInstance.levels || hlsInstance.levels.length <= 1) return;
-                        let bestIdx = 0;
-                        let maxH = 0;
-                        let maxB = 0;
-                        hlsInstance.levels.forEach((lvl, idx) => {
-                            const h = lvl.height || 0;
-                            const b = lvl.bitrate || 0;
-                            if (h > maxH || (h === maxH && b > maxB)) {
-                                maxH = h;
-                                maxB = b;
-                                bestIdx = idx;
-                            }
-                        });
-                        if (data.level !== bestIdx) {
-                            hlsInstance.currentLevel = bestIdx;
-                            hlsInstance.nextLevel = bestIdx;
-                        }
-                    });
-
-                    hlsInstance.on(Hls.Events.ERROR, (event, data) => {
-                        if (data.fatal) {
-                            clearTimeout(failTimer);
-                            stopHlsPlayer();
-                            if (!resolved) {
-                                reject(new Error("HLS fatal error"));
-                            } else if (session === playSessionId && currentIndex !== -1) {
-                                failedOfficialHls[hlsUrl] = Date.now();
-                                playChannel(currentIndex, false);
-                            }
-                        }
-                    });
-                } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
-                    stopHlsPlayer();
-                    let resolved = false;
-                    const failTimer = setTimeout(() => {
-                        if (!resolved) {
-                            stopHlsPlayer();
-                            reject(new Error("Native HLS timeout"));
-                        }
-                    }, timeoutMs);
-
-                    const onLoaded = () => {
-                        if (resolved) return;
-                        resolved = true;
-                        clearTimeout(failTimer);
-                        usingHls = true;
-                        stopYouTubeApiPolling();
-                        setAdShieldState(false);
-                        sendPlayerCommand('stopVideo');
-                        iframe.style.display = 'none';
-                        videoEl.style.display = 'block';
-                        videoEl.muted = isMuted;
-                        videoEl.play().then(() => resolve(true)).catch(() => {
-                            videoEl.muted = true;
-                            videoEl.play().then(() => resolve(true)).catch(() => {
-                                stopHlsPlayer();
-                                reject();
-                            });
-                        });
-                    };
-
-                    videoEl.addEventListener('loadedmetadata', onLoaded, { once: true });
-                    videoEl.addEventListener('error', () => {
-                        clearTimeout(failTimer);
-                        stopHlsPlayer();
-                        reject();
-                    }, { once: true });
-
-                    videoEl.src = hlsUrl;
-                    videoEl.load();
-                } else {
-                    reject(new Error("HLS not supported"));
+                        playChannel(currentIndex, false);
+                    }
                 }
             });
         }
 
-        // 2x Speed Parallel Stream Selector: ലഭ്യമായ HD ലിങ്കുകൾ ഒരേസമയം പരിശോധിച്ച് ഏറ്റവും വേഗതയുള്ളത് തിരഞ്ഞെടുക്കുന്നു
-        async function tryOfficialHlsStreams(channel, session) {
-            const candidateEntries = [];
-            
-            // 1. GitHub Action വഴി ലഭിക്കുന്ന 1080p YouTube HD m3u8 ലിങ്ക്
-            if (channel.streamKey && githubStreams[channel.streamKey]) {
-                const ghEntry = githubStreams[channel.streamKey];
-                const ghUrl = typeof ghEntry === 'string' ? ghEntry : (ghEntry && ghEntry.url ? ghEntry.url : null);
-                if (ghUrl) candidateEntries.push({ url: ghUrl, strictHd: true });
+        // അടുത്തതും മുമ്പത്തേതുമായ ചാനലുകൾ പശ്ചാത്തലത്തിൽ അതിവേഗം Preload ചെയ്യുന്നു
+        async function preloadChannelIntoSlot(slotKey, targetIndex) {
+            if (targetIndex < 0 || targetIndex >= channels.length) return;
+            const channel = channels[targetIndex];
+            const slot = preloadPool[slotKey];
+            if (!slot || !window.Hls || !Hls.isSupported()) return;
+
+            if (slot.channelId === channel.id && slot.ready && slot.hls) return;
+
+            clearPreloadSlot(slotKey);
+
+            const candidates = getCandidateHlsList(channel);
+            if (candidates.length === 0) return;
+
+            let chosenUrl = candidates[0].url;
+            if (candidates.length > 1 && !bestChannelHlsUrl[channel.id]) {
+                try {
+                    const fastest = await Promise.any(candidates.map(async c => {
+                        await verifyFastHdManifest(c.url, c.strictHd, 550);
+                        return c.url;
+                    }));
+                    chosenUrl = fastest;
+                } catch (e) {}
             }
 
-            // 2. ബാക്കപ്പ് HD HLS ലിങ്കുകൾ (എല്ലാ ചാനലുകൾക്കും ഒരേപോലെ HD പരിശോധന)
-            if (channel.hlsUrls && channel.hlsUrls.length > 0) {
-                channel.hlsUrls.forEach(u => {
-                    if (!candidateEntries.some(e => e.url === u)) {
-                        candidateEntries.push({ url: u, strictHd: true });
-                    }
-                });
-            }
+            if (currentIndex === -1 || currentIndex === targetIndex) return;
 
-            const activeCandidates = candidateEntries.filter(item => {
-                return !(failedOfficialHls[item.url] && (Date.now() - failedOfficialHls[item.url] < 300000));
+            const preloadVideo = document.getElementById(slot.videoElId);
+            if (!preloadVideo) return;
+
+            const preHls = new Hls({
+                enableWorker: true,
+                lowLatencyMode: true,
+                liveSyncDurationCount: 1.0,
+                liveMaxLatencyDurationCount: 2.2,
+                maxBufferLength: 2.5,
+                maxMaxBufferLength: 4,
+                backBufferLength: 0,
+                startFragPrefetch: true,
+                startLevel: -1,
+                capLevelToPlayerSize: false,
+                abrEwmaDefaultEstimate: 50000000,
+                manifestLoadingTimeOut: 900,
+                levelLoadingTimeOut: 900,
+                fragLoadingTimeOut: 1400
             });
 
-            if (activeCandidates.length === 0) return false;
+            slot.channelId = channel.id;
+            slot.url = chosenUrl;
+            slot.hls = preHls;
+            slot.ready = false;
 
-            // Parallel Pre-Flight Race: എല്ലാ ലിങ്കുകളും ഒരുമിച്ച് കാത്തിരിപ്പില്ലാതെ പരിശോധിക്കുന്നു
-            let orderedCandidates = activeCandidates;
-            if (activeCandidates.length > 1) {
-                try {
-                    const fastestHdItem = await Promise.any(
-                        activeCandidates.map(async (item) => {
-                            await verifyFastHdManifest(item.url, item.strictHd, 900);
-                            return item;
-                        })
-                    );
-                    orderedCandidates = [
-                        fastestHdItem,
-                        ...activeCandidates.filter(i => i.url !== fastestHdItem.url && !failedOfficialHls[i.url])
-                    ];
-                } catch (e) {
-                    orderedCandidates = activeCandidates.filter(i => !failedOfficialHls[i.url]);
+            preHls.loadSource(chosenUrl);
+            preHls.attachMedia(preloadVideo);
+
+            preHls.on(Hls.Events.MANIFEST_PARSED, () => {
+                if (slot.hls !== preHls) return;
+                const isHdOk = lockHlsHighestLevel(preHls, true);
+                if (!isHdOk) {
+                    failedOfficialHls[chosenUrl] = Date.now();
+                    clearPreloadSlot(slotKey);
+                    return;
                 }
+                bestChannelHlsUrl[channel.id] = chosenUrl;
+                saveBestHlsCache();
+                // മാനിഫെസ്റ്റ് റെഡിയായ നിമിഷം തന്നെ സ്ലോട്ട് Instant Swap-ന് തയ്യാറാകുന്നു (FRAG_BUFFERED കാത്തിരിപ്പില്ല)
+                slot.ready = true;
+                preloadVideo.muted = true;
+                preloadVideo.play().catch(() => {});
+            });
+
+            preHls.on(Hls.Events.ERROR, (ev, data) => {
+                if (data.fatal && slot.hls === preHls) {
+                    failedOfficialHls[chosenUrl] = Date.now();
+                    clearPreloadSlot(slotKey);
+                }
+            });
+        }
+
+        // ഗ്രിഡിലോ ഐക്കണിലോ വിരൽ തൊടുമ്പോൾ തന്നെ ആ ചാനൽ Pre-warm ചെയ്യുന്നു
+        function prewarmChannelById(id) {
+            const targetIdx = channels.findIndex(c => c.id === id);
+            if (targetIdx === -1 || targetIdx === currentIndex) return;
+            if (preloadPool.next.channelId === id || preloadPool.prev.channelId === id) return;
+            preloadChannelIntoSlot('next', targetIdx);
+        }
+
+        function getNeighborIndices(index) {
+            if (index === -1) return { nextIdx: 0, prevIdx: channels.length - 1 };
+            const currentCh = channels[index];
+            const isFav = favorites.includes(currentCh.id);
+
+            if (isFav && favorites.length > 1) {
+                const favPos = favorites.indexOf(currentCh.id);
+                const nextFavId = favorites[(favPos + 1) % favorites.length];
+                const prevFavId = favorites[(favPos - 1 + favorites.length) % favorites.length];
+                return {
+                    nextIdx: channels.findIndex(c => c.id === nextFavId),
+                    prevIdx: channels.findIndex(c => c.id === prevFavId)
+                };
             }
 
-            for (const item of orderedCandidates) {
-                if (session !== playSessionId) return false;
-                if (failedOfficialHls[item.url] && (Date.now() - failedOfficialHls[item.url] < 300000)) {
-                    continue;
+            return {
+                nextIdx: (index + 1) % channels.length,
+                prevIdx: (index - 1 + channels.length) % channels.length
+            };
+        }
+
+        function scheduleNeighborPreloads() {
+            clearTimeout(preloadScheduleTimer);
+            preloadScheduleTimer = setTimeout(() => {
+                if (currentIndex === -1) return;
+                const { nextIdx, prevIdx } = getNeighborIndices(currentIndex);
+                if (nextIdx !== -1 && nextIdx !== currentIndex) {
+                    preloadChannelIntoSlot('next', nextIdx);
                 }
+                if (prevIdx !== -1 && prevIdx !== currentIndex && prevIdx !== nextIdx) {
+                    preloadChannelIntoSlot('prev', prevIdx);
+                }
+            }, 80); // 80ms-ൽ ഉടൻ അടുത്ത ചാനൽ പ്രീലോഡ് തുടങ്ങുന്നു
+        }
+
+        // Preload ചെയ്ത വീഡിയോ എലമെന്റ് തൽക്ഷണം Main Player ആയി മാറ്റുന്നു
+        function tryActivatePreloadedChannel(channel, session) {
+            const slotKey = ['next', 'prev'].find(k =>
+                preloadPool[k].channelId === channel.id &&
+                preloadPool[k].ready &&
+                preloadPool[k].hls
+            );
+            if (!slotKey) return false;
+
+            const slot = preloadPool[slotKey];
+            const preloadedVideo = document.getElementById(slot.videoElId);
+            const currentMainVideo = getActiveMainVideoEl();
+            const iframe = document.getElementById('tv-player');
+
+            if (!preloadedVideo || !currentMainVideo) return false;
+
+            if (hlsInstance) {
+                try { hlsInstance.destroy(); } catch (e) {}
+                hlsInstance = null;
+            }
+            currentMainVideo.pause();
+            currentMainVideo.removeAttribute('src');
+            currentMainVideo.load();
+            currentMainVideo.style.display = 'none';
+            currentMainVideo.className = 'preload-video-buffer';
+            currentMainVideo.id = slot.videoElId;
+
+            preloadedVideo.id = 'hls-player';
+            preloadedVideo.className = 'main-player';
+            preloadedVideo.style.display = 'block';
+            preloadedVideo.muted = isMuted;
+
+            hlsInstance = slot.hls;
+            const activeUrl = slot.url;
+
+            slot.hls = null;
+            slot.channelId = -1;
+            slot.url = null;
+            slot.ready = false;
+
+            usingHls = true;
+            stopYouTubeApiPolling();
+            setAdShieldState(false);
+            sendPlayerCommand('stopVideo');
+            if (iframe) iframe.style.display = 'none';
+
+            bindMainHlsEvents(hlsInstance, activeUrl, session);
+
+            if (hlsInstance.liveSyncPosition && Math.abs(preloadedVideo.currentTime - hlsInstance.liveSyncPosition) > 4) {
+                try { preloadedVideo.currentTime = hlsInstance.liveSyncPosition; } catch (e) {}
+            }
+
+            preloadedVideo.play().catch(() => {
+                preloadedVideo.muted = true;
+                preloadedVideo.play().catch(() => {});
+            });
+
+            return true;
+        }
+
+        // Parallel HLS Race: ഒന്നിലധികം ലിങ്കുകൾ ഉള്ള ചാനലുകളിൽ കാത്തിരിപ്പില്ലാതെ ഏറ്റവും വേഗം റെഡിയാകുന്ന ലിങ്ക് തിരഞ്ഞെടുക്കുന്നു
+        function raceHlsCandidates(candidates, session, timeoutMs = 850) {
+            return new Promise((resolve, reject) => {
+                if (session !== playSessionId || candidates.length === 0) return reject();
+
+                let settled = false;
+                let failCount = 0;
+                const tempControllers = [];
+
+                const cleanupLosers = (winnerHls) => {
+                    tempControllers.forEach(item => {
+                        if (item.hls !== winnerHls) {
+                            try { item.hls.destroy(); } catch (e) {}
+                        }
+                    });
+                };
+
+                const raceTimer = setTimeout(() => {
+                    if (!settled) {
+                        settled = true;
+                        cleanupLosers(null);
+                        reject(new Error("Race timeout"));
+                    }
+                }, timeoutMs);
+
+                candidates.forEach(cand => {
+                    const hls = new Hls({
+                        enableWorker: true,
+                        lowLatencyMode: true,
+                        liveSyncDurationCount: 1.0,
+                        liveMaxLatencyDurationCount: 2.3,
+                        maxBufferLength: 4,
+                        maxMaxBufferLength: 10,
+                        backBufferLength: 2,
+                        startFragPrefetch: true,
+                        startLevel: -1,
+                        capLevelToPlayerSize: false,
+                        abrEwmaDefaultEstimate: 50000000,
+                        manifestLoadingTimeOut: timeoutMs,
+                        manifestLoadingMaxRetry: 0,
+                        levelLoadingTimeOut: timeoutMs,
+                        fragLoadingTimeOut: 1500
+                    });
+
+                    tempControllers.push({ hls, url: cand.url });
+
+                    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                        if (settled || session !== playSessionId) {
+                            try { hls.destroy(); } catch (e) {}
+                            return;
+                        }
+
+                        const isHdOk = lockHlsHighestLevel(hls, cand.strictHd);
+                        if (!isHdOk) {
+                            failedOfficialHls[cand.url] = Date.now();
+                            try { hls.destroy(); } catch (e) {}
+                            failCount++;
+                            if (failCount === candidates.length && !settled) {
+                                settled = true;
+                                clearTimeout(raceTimer);
+                                reject(new Error("All SD or failed"));
+                            }
+                            return;
+                        }
+
+                        settled = true;
+                        clearTimeout(raceTimer);
+                        cleanupLosers(hls);
+                        resolve({ hls, url: cand.url });
+                    });
+
+                    hls.on(Hls.Events.ERROR, (ev, data) => {
+                        if (data.fatal && !settled) {
+                            failedOfficialHls[cand.url] = Date.now();
+                            try { hls.destroy(); } catch (e) {}
+                            failCount++;
+                            if (failCount === candidates.length && !settled) {
+                                settled = true;
+                                clearTimeout(raceTimer);
+                                reject(new Error("All fatal"));
+                            }
+                        }
+                    });
+
+                    hls.loadSource(cand.url);
+                });
+            });
+        }
+
+        async function tryOfficialHlsStreams(channel, session) {
+            const activeCandidates = getCandidateHlsList(channel);
+            if (activeCandidates.length === 0) return false;
+
+            const videoEl = getActiveMainVideoEl();
+            const iframe = document.getElementById('tv-player');
+            if (!videoEl) return false;
+
+            if (window.Hls && Hls.isSupported()) {
                 try {
-                    await playSingleHlsUrl(item.url, session, item.strictHd, 1100);
+                    // ലഭ്യമായ ലിങ്കുകൾ ഒരേസമയം (Parallel) പരിശോധിച്ച് ആദ്യം റെഡിയാകുന്ന 1080p സ്ട്രീം എടുക്കുന്നു
+                    const winner = await raceHlsCandidates(activeCandidates.slice(0, 3), session, 850);
+                    if (session !== playSessionId) {
+                        try { winner.hls.destroy(); } catch (e) {}
+                        return false;
+                    }
+
+                    stopHlsPlayer();
+                    hlsInstance = winner.hls;
+                    verifiedHdUrls[winner.url] = true;
+                    bestChannelHlsUrl[channel.id] = winner.url;
+                    saveBestHlsCache();
+
+                    usingHls = true;
+                    stopYouTubeApiPolling();
+                    setAdShieldState(false);
+                    sendPlayerCommand('stopVideo');
+
+                    if (iframe) iframe.style.display = 'none';
+                    videoEl.style.display = 'block';
+                    videoEl.muted = isMuted;
+
+                    hlsInstance.attachMedia(videoEl);
+                    videoEl.play().catch(() => {
+                        videoEl.muted = true;
+                        videoEl.play().catch(() => {});
+                    });
+
+                    bindMainHlsEvents(hlsInstance, winner.url, session);
                     return true;
                 } catch (e) {
-                    failedOfficialHls[item.url] = Date.now();
+                    if (bestChannelHlsUrl[channel.id]) {
+                        delete bestChannelHlsUrl[channel.id];
+                        saveBestHlsCache();
+                    }
+                    return false;
+                }
+            } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
+                for (const item of activeCandidates) {
+                    if (session !== playSessionId) return false;
+                    try {
+                        await new Promise((resolve, reject) => {
+                            stopHlsPlayer();
+                            const t = setTimeout(() => reject(), 900);
+                            videoEl.addEventListener('loadedmetadata', () => {
+                                clearTimeout(t);
+                                usingHls = true;
+                                stopYouTubeApiPolling();
+                                setAdShieldState(false);
+                                sendPlayerCommand('stopVideo');
+                                iframe.style.display = 'none';
+                                videoEl.style.display = 'block';
+                                videoEl.muted = isMuted;
+                                videoEl.play().then(resolve).catch(resolve);
+                            }, { once: true });
+                            videoEl.addEventListener('error', () => {
+                                clearTimeout(t);
+                                reject();
+                            }, { once: true });
+                            videoEl.src = item.url;
+                            videoEl.load();
+                        });
+                        return true;
+                    } catch (e) {}
                 }
             }
             return false;
@@ -1612,7 +1998,40 @@
             }
         }
 
+        function triggerCinematicSwitchTransition(channel, isInstantPreload = false, skipFade = false) {
+            const wrapper = document.getElementById('video-wrapper');
+            const banner = document.getElementById('channel-osd-banner');
+            const logoEl = document.getElementById('channel-osd-logo');
+            const nameEl = document.getElementById('channel-osd-name');
+            const statusEl = document.getElementById('channel-osd-status');
+
+            if (wrapper && !skipFade) {
+                wrapper.classList.remove('ch-switched-in');
+                wrapper.classList.add('ch-switching');
+                setTimeout(() => {
+                    wrapper.classList.remove('ch-switching');
+                    wrapper.classList.add('ch-switched-in');
+                }, 70);
+            }
+
+            if (banner && logoEl && nameEl && statusEl) {
+                logoEl.src = channel.logo;
+                logoEl.onerror = function() {
+                    this.onerror = null;
+                    this.src = `https://via.placeholder.com/24/1e1e1e/ffffff?text=${channel.name.charAt(0)}`;
+                };
+                nameEl.innerText = channel.name;
+                statusEl.innerText = isInstantPreload ? "⚡ INSTANT 1080p HD" : "🔴 LIVE 1080p HD";
+                banner.classList.add('show');
+                clearTimeout(osdBannerTimer);
+                osdBannerTimer = setTimeout(() => {
+                    banner.classList.remove('show');
+                }, 1800);
+            }
+        }
+
         async function playChannel(index, forceIframeReload = false) {
+            const isFirstBoot = (currentIndex === -1);
             currentIndex = index;
             const session = ++playSessionId;
             const channel = channels[currentIndex];
@@ -1622,7 +2041,6 @@
                 playerBox.style.display = "block";
             }
 
-            // MediaOne (id: 4) ആണെങ്കിൽ 20:9 സ്ട്രെച്ച് മോഡിൽ ബോർഡർ ഇല്ലാതെ നിറഞ്ഞുനിൽക്കാൻ പ്രത്യേക ക്ലാസ് ചേർക്കുന്നു
             playerBox.classList.toggle('ch-mediaone', channel.id === 4);
 
             setAdShieldState(false);
@@ -1631,10 +2049,18 @@
             updateFsActiveIcon();
             updateToastUI();
 
-            // News18 Live ID പശ്ചാത്തലത്തിൽ സമാന്തരമായി (Non-blocking) ഫെച്ച് ചെയ്യുന്നു
+            // 1. Preload ബഫറിൽ ചാനൽ തയ്യാറാണെങ്കിൽ കാത്തിരിപ്പില്ലാതെ തൽക്ഷണം പ്ലേ ചെയ്യുന്നു
+            if (!forceIframeReload && tryActivatePreloadedChannel(channel, session)) {
+                triggerCinematicSwitchTransition(channel, true, isFirstBoot);
+                scheduleNeighborPreloads();
+                return;
+            }
+
+            triggerCinematicSwitchTransition(channel, false, isFirstBoot);
+
             let news18WorkerPromise = null;
             if (channel.id === 8) {
-                news18WorkerPromise = fetchWithTimeout(`https://news18-live-fetcher.shamsushaz14.workers.dev?t=${Date.now()}`, 1200)
+                news18WorkerPromise = fetchWithTimeout(`https://news18-live-fetcher.shamsushaz14.workers.dev?t=${Date.now()}`, 950)
                     .then(r => r.json())
                     .then(data => {
                         if (data && data.videoId && !expiredIds.includes(data.videoId)) {
@@ -1647,7 +2073,12 @@
             }
 
             const hlsSuccess = await tryOfficialHlsStreams(channel, session);
-            if (session !== playSessionId || hlsSuccess) return;
+            if (session !== playSessionId) return;
+
+            if (hlsSuccess) {
+                scheduleNeighborPreloads();
+                return;
+            }
 
             stopHlsPlayer();
 
@@ -1657,6 +2088,7 @@
 
             if (session !== playSessionId) return;
             loadYouTubeEmbed(channel, forceIframeReload);
+            scheduleNeighborPreloads();
         }
 
         function renderClockContent() {
@@ -1767,7 +2199,7 @@
             if (!fsList) return;
             let html = '';
             channels.forEach(ch => {
-                html += `<img src="${ch.logo}" class="fs-channel-icon" id="fs-icon-${ch.id}" onclick="fsPlayChannel(${ch.id})" alt="${ch.name}" onerror="this.onerror=null; this.src='https://via.placeholder.com/40/1e1e1e/ffffff?text=${ch.name.charAt(0)}';">`;
+                html += `<img src="${ch.logo}" class="fs-channel-icon" id="fs-icon-${ch.id}" ontouchstart="prewarmChannelById(${ch.id})" onmouseenter="prewarmChannelById(${ch.id})" onclick="fsPlayChannel(${ch.id})" alt="${ch.name}" onerror="this.onerror=null; this.src='https://via.placeholder.com/36/1e1e1e/ffffff?text=${ch.name.charAt(0)}';">`;
             });
             fsList.innerHTML = html;
         }
@@ -1803,7 +2235,7 @@
 
         function createChannelCardHTML(ch, isFav) {
             return `
-                <div class="card">
+                <div class="card" ontouchstart="prewarmChannelById(${ch.id})" onmouseenter="prewarmChannelById(${ch.id})">
                     <button class="fav-star ${isFav ? 'active' : ''}" onclick="toggleFavorite(event, ${ch.id})" title="Favorite">
                         <svg viewBox="0 0 24 24">
                             <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
@@ -1826,6 +2258,7 @@
             }
             localStorage.setItem('news_tv_favs', JSON.stringify(favorites));
             buildGrid();
+            scheduleNeighborPreloads();
         }
 
         function playChannelById(id) {
@@ -2134,6 +2567,9 @@
             const currentChannel = channels[currentIndex];
             const previousVideoId = currentChannel.liveVideoId;
 
+            delete bestChannelHlsUrl[currentChannel.id];
+            saveBestHlsCache();
+            clearAllPreloads();
             await loadGitHubActionStreams();
 
             if (currentChannel.streamKey && githubStreams[currentChannel.streamKey]) {
@@ -2170,7 +2606,7 @@
                 }
             } catch (err) {} finally {
                 autoRecoverInProgress = false;
-                playChannel(currentIndex, false);
+                playChannel(currentIndex, true);
                 setTimeout(() => {
                     refreshIcon.classList.remove('spin-icon');
                 }, 400);
@@ -2188,6 +2624,7 @@
 
             if (playerBox && playerBox.style.display === "block") {
                 stopHlsPlayer();
+                clearAllPreloads();
                 stopYouTubeApiPolling();
                 setAdShieldState(false);
                 sendPlayerCommand('stopVideo');
@@ -2229,7 +2666,7 @@
             const muteSvgIcon = document.getElementById('mute-svg-icon');
             const unmuteToast = document.getElementById('center-unmute-toast');
             const toastText = document.getElementById('toast-text');
-            const videoEl = document.getElementById('hls-player');
+            const videoEl = getActiveMainVideoEl();
 
             if (toastText) toastText.innerText = "Tap to Unmute";
             muteSvgIcon.innerHTML = isMuted ? svgMuted : svgUnmuted;
@@ -2290,7 +2727,7 @@
             if (currentIndex === -1) playChannel(0);
 
             isStretchMode = false;
-            playerBox.classList.remove('ratio-stretch');
+            playerBox.classList.remove('ratio-stretch', 'fs-exiting');
             
             const stretchBtn = document.getElementById('side-stretch-btn');
             if(stretchBtn) {
@@ -2299,6 +2736,7 @@
             }
 
             playerBox.classList.add('fullscreen-mode');
+            showFsChannels();
 
             try {
                 const elem = document.documentElement;
@@ -2316,9 +2754,15 @@
 
         function exitFullScreen() {
             const playerBox = document.getElementById('player-box');
+            const fsList = document.getElementById('fs-channel-list');
             if (playerBox) {
-                playerBox.classList.remove('fullscreen-mode');
-                playerBox.classList.remove('ratio-stretch');
+                clearTimeout(fsChannelTimer);
+                if (fsList) fsList.classList.remove('show');
+                playerBox.classList.remove('fullscreen-mode', 'ratio-stretch');
+                playerBox.classList.add('fs-exiting');
+                setTimeout(() => {
+                    playerBox.classList.remove('fs-exiting');
+                }, 220);
                 isStretchMode = false;
                 
                 const stretchBtn = document.getElementById('side-stretch-btn');
@@ -2347,7 +2791,7 @@
         let touchStartY = 0;
         let touchEndX = 0;
         let touchEndY = 0;
-        const swipeThreshold = 50; 
+        const swipeThreshold = 40; 
 
         function handleGesture() {
             const diffX = touchEndX - touchStartX;
@@ -2379,18 +2823,22 @@
             }
         }
 
-        window.onload = function() {
+        // Zero Startup Lag: DOM റെഡിയായ ഉടൻ തന്നെ ആദ്യ ചാനൽ പ്ലേ ചെയ്യുന്നു
+        let appInitialized = false;
+        function initApp() {
+            if (appInitialized) return;
+            appInitialized = true;
+
             document.getElementById('mute-svg-icon').innerHTML = svgMuted;
             
+            playChannel(0, true);
+            loadGitHubActionStreams();
+
             renderClockContent();
             setInterval(toggleClockBlink, 3000);
 
             buildGrid();
             buildFsChannelList();
-
-            // 2x Instant Start: കാത്തിരിപ്പില്ലാതെ ഉടൻ ആദ്യ ചാനൽ പ്ലേ ചെയ്യുന്നു, സമാന്തരമായി പുതിയ GitHub സ്ട്രീമുകൾ അപ്ഡേറ്റ് ചെയ്യുന്നു
-            playChannel(0, true);
-            loadGitHubActionStreams();
 
             const swipeOverlay = document.getElementById('swipe-overlay');
             if (swipeOverlay) {
@@ -2405,7 +2853,13 @@
                     handleGesture();
                 }, { passive: true });
             }
-        };
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initApp);
+        } else {
+            initApp();
+        }
     </script>
 </body>
 </html>
