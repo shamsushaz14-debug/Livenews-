@@ -26,6 +26,7 @@
     <link rel="preconnect" href="https://asianet-samsung.vgcdn.net" crossorigin>
     <link rel="preconnect" href="https://mmtvnews1.akamaized.net" crossorigin>
     <link rel="preconnect" href="https://yuppmedtaorire.akamaized.net" crossorigin>
+    <link rel="preconnect" href="https://vglivessai.akamaized.net" crossorigin>
     <link rel="preconnect" href="https://cdn.pishow.tv" crossorigin>
     <link rel="preconnect" href="https://streams.tangotv.in" crossorigin>
     <link rel="preconnect" href="https://mumt07.tangotv.in" crossorigin>
@@ -37,8 +38,8 @@
 
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@800&display=swap" rel="stylesheet">
 
-    <!-- HLS.js for Lightning-Fast Direct .m3u8 Streaming -->
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <!-- HLS.js Pinned to Stable v1.5.17 for Lightning-Fast Direct .m3u8 Streaming -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
 
     <style>
         :root {
@@ -400,6 +401,66 @@
         .ad-shield-sub {
             font-size: 0.75rem;
             color: #999;
+        }
+
+        /* Channel Unavailable Fallback Screen */
+        .channel-unavailable-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(11, 14, 17, 0.94);
+            z-index: 35;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            gap: 10px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .unavail-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--live-red);
+        }
+
+        .unavail-sub {
+            font-size: 0.78rem;
+            color: #bbb;
+            max-width: 280px;
+            line-height: 1.35;
+        }
+
+        .unavail-btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 6px;
+        }
+
+        .unavail-btn {
+            background-color: var(--primary-teal);
+            color: #fff;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 20px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.4);
+        }
+
+        .unavail-btn.secondary {
+            background-color: transparent;
+            border: 1.5px solid var(--primary-teal);
+            color: #fff;
+        }
+
+        .unavail-btn:active {
+            transform: scale(0.95);
         }
 
         /* Fullscreen Mode: Cinematic Entrance/Exit & Strict 16:9 Landscape */
@@ -964,7 +1025,7 @@
         </div>
 
         <div class="header-title">
-            <span class="live-badge">🔴 LIVE 1080p HD</span>
+            <span class="live-badge" id="header-live-badge">🔴 LIVE 1080p HD</span>
             <h1>News<span class="tv-text">TV</span></h1>
             <div class="scroll-container">
                 <span class="scroll-text">Developed by Shamsu Shaz © 2026</span>
@@ -986,7 +1047,7 @@
         <!-- Hybrid Player Box -->
         <div class="player-container" id="player-box">
             
-            <!-- Cinematic Channel OSD Pill (Shows on Switch) -->
+            <!-- Cinematic Channel OSD Pill (Shows on Switch & Bandwidth Updates) -->
             <div class="channel-osd-banner" id="channel-osd-banner">
                 <img src="" id="channel-osd-logo" class="channel-osd-logo" alt="">
                 <div class="channel-osd-text">
@@ -1000,6 +1061,16 @@
                 <div class="ad-shield-spinner"></div>
                 <div class="ad-shield-title">പരസ്യം ഒഴിവാക്കുന്നു...</div>
                 <div class="ad-shield-sub" id="ad-shield-subtext">Skipping Pre-Roll Ad to 1080p Live</div>
+            </div>
+
+            <!-- Channel Unavailable Screen (After 3 Full Retries) -->
+            <div class="channel-unavailable-overlay" id="channel-unavailable-overlay">
+                <div class="unavail-title">ചാനൽ ലഭ്യമല്ല (Stream Unavailable)</div>
+                <div class="unavail-sub" id="unavail-subtext">സ്ട്രീം താൽക്കാലികമായി ലഭ്യമല്ല. വീണ്ടും ശ്രമിക്കാം അല്ലെങ്കിൽ അടുത്ത ചാനലിലേക്ക് മാറാം.</div>
+                <div class="unavail-btn-group">
+                    <button class="unavail-btn" onclick="retryUnavailableChannel()">🔄 വീണ്ടും ശ്രമിക്കുക</button>
+                    <button class="unavail-btn secondary" onclick="changeChannel(1)">⏭️ അടുത്ത ചാനൽ</button>
+                </div>
             </div>
 
             <!-- Tap to Unmute Notification -->
@@ -1100,8 +1171,39 @@
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js').catch(() => {});
+                navigator.serviceWorker.register('./sw.js?v=28').catch(() => {});
             });
+        }
+
+        // Safe localStorage wrappers
+        function safeGetStorage(key) {
+            try { return localStorage.getItem(key); } catch (e) { return null; }
+        }
+        function safeSetStorage(key, val) {
+            try { localStorage.setItem(key, val); } catch (e) {}
+        }
+        function safeRemoveStorage(key) {
+            try { localStorage.removeItem(key); } catch (e) {}
+        }
+        function safeParseObj(key) {
+            try {
+                const raw = safeGetStorage(key);
+                if (!raw) return {};
+                const parsed = JSON.parse(raw);
+                return (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {};
+            } catch (e) {
+                return {};
+            }
+        }
+        function safeParseArr(key, fallback = []) {
+            try {
+                const raw = safeGetStorage(key);
+                if (!raw) return [...fallback];
+                const parsed = JSON.parse(raw);
+                return Array.isArray(parsed) ? parsed : [...fallback];
+            } catch (e) {
+                return [...fallback];
+            }
         }
 
         // എല്ലാ ചാനലുകൾക്കും ഒരേപോലെ 1080p HD മുൻഗണന
@@ -1228,6 +1330,7 @@
                 streamKey: "newsmalayalam",
                 name: "News Malayalam",
                 hlsUrls: [
+                    "https://vglivessai.akamaized.net/sg/v1/master/611d79b11b77e2f571934fd80ca1413453772ac7/cdb96065-b754-4c59-93c0-fe73f482439e/index.m3u8",
                     "https://cdn.pishow.tv/ott/live/1629/master.m3u8"
                 ],
                 preferYouTube1080p: true,
@@ -1257,16 +1360,16 @@
             }
         ];
 
-        const CACHE_VERSION = "v24_2026_11_09_instant_switch_parallel_race";
-        if (localStorage.getItem('news_tv_cache_ver') !== CACHE_VERSION) {
-            localStorage.removeItem('news_tv_live_ids');
-            localStorage.removeItem('news_tv_expired_ids');
-            localStorage.setItem('news_tv_cache_ver', CACHE_VERSION);
+        const CACHE_VERSION = "v28";
+        if (safeGetStorage('news_tv_cache_ver') !== CACHE_VERSION) {
+            safeRemoveStorage('news_tv_live_ids');
+            safeRemoveStorage('news_tv_expired_ids');
+            safeSetStorage('news_tv_cache_ver', CACHE_VERSION);
         }
 
-        const savedLiveIds = JSON.parse(localStorage.getItem('news_tv_live_ids')) || {};
+        const savedLiveIds = safeParseObj('news_tv_live_ids');
         const defaultExpired = ["s0LLVQeMmtU", "l4CTvEXbTJg", "HHd_4Bp3v6k", "M_2UPAcgxrY"];
-        let expiredIds = JSON.parse(localStorage.getItem('news_tv_expired_ids')) || defaultExpired;
+        let expiredIds = safeParseArr('news_tv_expired_ids', defaultExpired);
         defaultExpired.forEach(id => {
             if (!expiredIds.includes(id)) expiredIds.push(id);
         });
@@ -1275,7 +1378,7 @@
             if (videoId && !expiredIds.includes(videoId)) {
                 expiredIds.push(videoId);
                 if (expiredIds.length > 60) expiredIds.shift();
-                localStorage.setItem('news_tv_expired_ids', JSON.stringify(expiredIds));
+                safeSetStorage('news_tv_expired_ids', JSON.stringify(expiredIds));
             }
         }
 
@@ -1286,19 +1389,22 @@
                 savedLiveIds[ch.id] = ch.liveVideoId;
             }
         });
-        localStorage.setItem('news_tv_live_ids', JSON.stringify(savedLiveIds));
+        safeSetStorage('news_tv_live_ids', JSON.stringify(savedLiveIds));
+
+        const MAX_CHANNEL_RETRIES = 3;
+        const FAIL_BLOCK_MS = 60000; // 60 സെക്കൻഡ് ഫെയിൽ ബ്ലോക്ക്
 
         let currentIndex = -1;
         let isMuted = true;
         let isStretchMode = false;
-        let favorites = JSON.parse(localStorage.getItem('news_tv_favs')) || [];
+        let favorites = safeParseArr('news_tv_favs', []);
         let deferredPrompt = null;
         let wakeLock = null;
         let fsChannelTimer = null;
         let osdBannerTimer = null;
         let preloadScheduleTimer = null;
         let autoRecoverInProgress = false;
-        let attemptedAutoRecover = {};
+        let channelRetryCounts = {};
         let playerReady = false;
         
         let hlsInstance = null;
@@ -1308,16 +1414,28 @@
         let lastAdEvictTime = 0;
         let adReloadBurstCount = 0;
         let ytPollInterval = null;
+        let ytFallbackWatchdog = null;
+        let ytConfirmedPlaying = false;
         let playSessionId = 0;
         let failedOfficialHls = {};
+        let sdFallbackUrls = {};
         let verifiedHdUrls = {};
-        let bestChannelHlsUrl = JSON.parse(localStorage.getItem('news_tv_best_hls')) || {};
-        let githubStreams = JSON.parse(localStorage.getItem('news_tv_gh_streams')) || {};
+        let bestChannelHlsUrl = safeParseObj('news_tv_best_hls');
+        let githubStreams = safeParseObj('news_tv_gh_streams');
+
+        // Stall Detection & Continuous Playback Heal Reset State
+        let stallCheckInterval = null;
+        let lastVideoTime = -1;
+        let stallStartTime = 0;
+        let liveEdgeJumpDone = false;
+        let continuousPlayTimer = null;
+
+        // Real-Time Network Bandwidth Monitoring State
+        let currentBandwidthMbps = 0;
+        let isLowBandwidthGuardActive = false;
 
         function saveBestHlsCache() {
-            try {
-                localStorage.setItem('news_tv_best_hls', JSON.stringify(bestChannelHlsUrl));
-            } catch (e) {}
+            safeSetStorage('news_tv_best_hls', JSON.stringify(bestChannelHlsUrl));
         }
 
         // Dual Preload Pool (Next & Previous Channels)
@@ -1328,6 +1446,102 @@
 
         let hasShownSwipeHint = false; 
         let showTimeMode = true;
+
+        // നെറ്റ്‌വർക്ക് ബാൻഡ്‌വിഡ്ത്ത് മോണിറ്ററിംഗ് & സ്മാർട്ട് ബഫർ അഡാപ്റ്റേഷൻ
+        function initNetworkBandwidthMonitor() {
+            const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+            if (conn) {
+                if (typeof conn.downlink === 'number' && conn.downlink > 0) {
+                    currentBandwidthMbps = conn.downlink;
+                }
+                conn.addEventListener('change', () => {
+                    if (typeof conn.downlink === 'number' && conn.downlink > 0) {
+                        updateBandwidthTelemetry(conn.downlink * 1000000);
+                    }
+                });
+            }
+
+            window.addEventListener('online', () => {
+                failedOfficialHls = {};
+                if (currentIndex !== -1) {
+                    const videoEl = getActiveMainVideoEl();
+                    const isOverlayShown = document.getElementById('channel-unavailable-overlay').style.display === 'flex';
+                    if (isOverlayShown || (usingHls && videoEl && videoEl.paused)) {
+                        channelRetryCounts[channels[currentIndex].id] = 0;
+                        hideChannelUnavailableScreen();
+                        playChannel(currentIndex, false);
+                    }
+                }
+            });
+        }
+
+        function updateBandwidthTelemetry(bitsPerSec) {
+            if (!bitsPerSec || !isFinite(bitsPerSec) || bitsPerSec <= 0) return;
+            const measuredMbps = bitsPerSec / 1000000;
+            currentBandwidthMbps = currentBandwidthMbps > 0
+                ? (currentBandwidthMbps * 0.65) + (measuredMbps * 0.35)
+                : measuredMbps;
+
+            const badgeEl = document.getElementById('header-live-badge');
+            const osdStatusEl = document.getElementById('channel-osd-status');
+            const speedStr = `${currentBandwidthMbps.toFixed(1)} Mbps`;
+
+            // നെറ്റ്‌വർക്ക് സ്പീഡ് കുറയുമ്പോൾ കട്ടാകാതിരിക്കാൻ ബഫർ സ്വയം ക്രമീകരിക്കുന്നു
+            if (hlsInstance && hlsInstance.config) {
+                if (currentBandwidthMbps < 2.2) {
+                    isLowBandwidthGuardActive = true;
+                    hlsInstance.config.maxBufferLength = 9;
+                    hlsInstance.config.maxMaxBufferLength = 16;
+                    if (hlsInstance.levels && hlsInstance.levels.length > 1) {
+                        hlsInstance.loadLevel = -1; // Auto ABR during severe network drop
+                    }
+                    if (badgeEl) badgeEl.innerText = `🟡 LIVE SAVER • ${speedStr}`;
+                } else {
+                    if (isLowBandwidthGuardActive) {
+                        isLowBandwidthGuardActive = false;
+                        hlsInstance.config.maxBufferLength = 4;
+                        hlsInstance.config.maxMaxBufferLength = 10;
+                        lockHlsHighestLevel(hlsInstance, false);
+                    }
+                    if (badgeEl) badgeEl.innerText = `🔴 LIVE 1080p • ${speedStr}`;
+                }
+            }
+
+            if (osdStatusEl && usingHls && !osdStatusEl.innerText.includes('RETRY') && !osdStatusEl.innerText.includes('SD BACKUP')) {
+                osdStatusEl.innerText = isLowBandwidthGuardActive
+                    ? `🛡️ SMART BUFFER (${speedStr})`
+                    : `⚡ 1080p HD • ${speedStr}`;
+            }
+        }
+
+        function getAdaptiveRaceTimeout(baseTimeoutMs) {
+            if (currentBandwidthMbps > 0 && currentBandwidthMbps < 2.0) {
+                return Math.min(baseTimeoutMs + 700, 3000);
+            }
+            return baseTimeoutMs;
+        }
+
+        function showChannelUnavailableScreen(channel) {
+            const overlay = document.getElementById('channel-unavailable-overlay');
+            const sub = document.getElementById('unavail-subtext');
+            if (sub && channel) {
+                sub.innerText = `${channel.name} ലൈവ് സ്ട്രീം ഇപ്പോൾ ലഭ്യമല്ല (3 തവണ ശ്രമിച്ചു). ദയവായി വീണ്ടും ശ്രമിക്കുക.`;
+            }
+            if (overlay) overlay.style.display = 'flex';
+        }
+
+        function hideChannelUnavailableScreen() {
+            const overlay = document.getElementById('channel-unavailable-overlay');
+            if (overlay) overlay.style.display = 'none';
+        }
+
+        function retryUnavailableChannel() {
+            if (currentIndex === -1) return;
+            const chId = channels[currentIndex].id;
+            channelRetryCounts[chId] = 0;
+            hideChannelUnavailableScreen();
+            refreshCurrentChannel(false);
+        }
 
         async function loadGitHubActionStreams() {
             const urlsToTry = [
@@ -1342,11 +1556,11 @@
                     clearTimeout(timer);
                     if (!res.ok) throw new Error("Not OK");
                     const data = await res.json();
-                    if (data && typeof data === 'object' && Object.keys(data).length > 0) return data;
+                    if (data && typeof data === 'object' && !Array.isArray(data) && Object.keys(data).length > 0) return data;
                     throw new Error("Empty");
                 }));
                 githubStreams = fastestData;
-                localStorage.setItem('news_tv_gh_streams', JSON.stringify(githubStreams));
+                safeSetStorage('news_tv_gh_streams', JSON.stringify(githubStreams));
             } catch (e) {}
         }
 
@@ -1366,6 +1580,13 @@
         function enforceYouTubeHighQuality() {
             sendPlayerCommand('setPlaybackQualityRange', ['hd1080', 'hd1080']);
             sendPlayerCommand('setPlaybackQuality', ['hd1080']);
+        }
+
+        function clearYouTubeWatchdog() {
+            if (ytFallbackWatchdog) {
+                clearTimeout(ytFallbackWatchdog);
+                ytFallbackWatchdog = null;
+            }
         }
 
         function startYouTubeApiPolling() {
@@ -1456,14 +1677,107 @@
             return document.querySelector('#video-wrapper video.main-player') || document.getElementById('hls-player');
         }
 
+        function stopStallMonitor() {
+            if (stallCheckInterval) {
+                clearInterval(stallCheckInterval);
+                stallCheckInterval = null;
+            }
+            if (continuousPlayTimer) {
+                clearTimeout(continuousPlayTimer);
+                continuousPlayTimer = null;
+            }
+            lastVideoTime = -1;
+            stallStartTime = 0;
+            liveEdgeJumpDone = false;
+        }
+
+        // സ്റ്റാൾ ഡിറ്റക്ഷൻ (6.5s → ലൈവ് എഡ്ജ് ചാട്ടം → 4s → റിക്കവറി) & document.hidden ചെക്ക് + 30s ഹീൽ റീസെറ്റ്
+        function startStallMonitor(session) {
+            stopStallMonitor();
+            stallCheckInterval = setInterval(() => {
+                if (document.hidden || !usingHls || session !== playSessionId || currentIndex === -1) {
+                    stallStartTime = 0;
+                    liveEdgeJumpDone = false;
+                    return;
+                }
+                const videoEl = getActiveMainVideoEl();
+                if (!videoEl || videoEl.paused) return;
+
+                const curTime = videoEl.currentTime;
+                if (lastVideoTime !== -1 && Math.abs(curTime - lastVideoTime) < 0.04) {
+                    if (stallStartTime === 0) {
+                        stallStartTime = Date.now();
+                    } else {
+                        const stalledElapsed = Date.now() - stallStartTime;
+                        if (!liveEdgeJumpDone && stalledElapsed >= 6500) {
+                            liveEdgeJumpDone = true;
+                            stallStartTime = Date.now(); // അടുത്ത 4 സെക്കൻഡ് കൗണ്ട്ഡൗൺ തുടങ്ങുന്നു
+                            try {
+                                if (hlsInstance) {
+                                    if (hlsInstance.liveSyncPosition) {
+                                        videoEl.currentTime = hlsInstance.liveSyncPosition;
+                                    } else if (videoEl.buffered && videoEl.buffered.length > 0) {
+                                        videoEl.currentTime = Math.max(0, videoEl.buffered.end(videoEl.buffered.length - 1) - 0.5);
+                                    }
+                                    hlsInstance.startLoad();
+                                }
+                                videoEl.play().catch(() => {});
+                            } catch (e) {}
+                        } else if (liveEdgeJumpDone && stalledElapsed >= 4000) {
+                            const stalledUrl = hlsInstance && hlsInstance._srcUrl ? hlsInstance._srcUrl : null;
+                            stopStallMonitor();
+                            stopHlsPlayer();
+                            if (stalledUrl) {
+                                failedOfficialHls[stalledUrl] = Date.now();
+                                if (bestChannelHlsUrl[channels[currentIndex].id] === stalledUrl) {
+                                    delete bestChannelHlsUrl[channels[currentIndex].id];
+                                    saveBestHlsCache();
+                                }
+                            }
+                            playChannel(currentIndex, false);
+                        }
+                    }
+                } else {
+                    lastVideoTime = curTime;
+                    stallStartTime = 0;
+                    liveEdgeJumpDone = false;
+                }
+            }, 500);
+        }
+
+        function attachPlaybackLifecycleListeners(videoEl, session) {
+            if (!videoEl) return;
+            videoEl.onplaying = () => {
+                if (session !== playSessionId || !usingHls) return;
+                hideChannelUnavailableScreen();
+                if (currentIndex !== -1) {
+                    channelRetryCounts[channels[currentIndex].id] = 0;
+                }
+                // പ്രീലോഡ് playing-ന് 3 സെക്കൻഡ് ശേഷം മാത്രം (ബാൻഡ്‌വിഡ്ത്ത് കുറവാണെങ്കിൽ പ്രീലോഡ് വൈകിപ്പിക്കുന്നു)
+                const preloadWait = (currentBandwidthMbps > 0 && currentBandwidthMbps < 2.2) ? 6000 : 3000;
+                scheduleNeighborPreloads(preloadWait);
+
+                // 30 സെക്കൻഡ് തുടർച്ചയായി പ്ലേ ആയാൽ ഹീൽ ഫ്ലാഗുകൾ റീസെറ്റ്
+                clearTimeout(continuousPlayTimer);
+                continuousPlayTimer = setTimeout(() => {
+                    if (session === playSessionId && usingHls && hlsInstance && !videoEl.paused) {
+                        hlsInstance._netHealAttempted = false;
+                        hlsInstance._mediaHealAttempted = false;
+                    }
+                }, 30000);
+            };
+        }
+
         function stopHlsPlayer() {
             usingHls = false;
+            stopStallMonitor();
             const videoEl = getActiveMainVideoEl();
             if (hlsInstance) {
                 try { hlsInstance.destroy(); } catch (e) {}
                 hlsInstance = null;
             }
             if (videoEl) {
+                videoEl.onplaying = null;
                 videoEl.pause();
                 videoEl.removeAttribute('src');
                 videoEl.load();
@@ -1495,26 +1809,39 @@
             clearPreloadSlot('prev');
         }
 
-        function getCandidateHlsList(channel) {
+        function getCandidateHlsList(channel, allowSdFallback = false) {
             const list = [];
-            if (bestChannelHlsUrl[channel.id] && !failedOfficialHls[bestChannelHlsUrl[channel.id]]) {
+            const strictHdFlag = !allowSdFallback;
+
+            if (!allowSdFallback && bestChannelHlsUrl[channel.id] && !failedOfficialHls[bestChannelHlsUrl[channel.id]] && !sdFallbackUrls[bestChannelHlsUrl[channel.id]]) {
                 list.push({ url: bestChannelHlsUrl[channel.id], strictHd: true });
             }
             if (channel.streamKey && githubStreams[channel.streamKey]) {
                 const ghEntry = githubStreams[channel.streamKey];
                 const ghUrl = typeof ghEntry === 'string' ? ghEntry : (ghEntry && ghEntry.url ? ghEntry.url : null);
                 if (ghUrl && !list.some(i => i.url === ghUrl)) {
-                    list.push({ url: ghUrl, strictHd: true });
+                    list.push({ url: ghUrl, strictHd: strictHdFlag });
                 }
             }
             if (channel.hlsUrls && channel.hlsUrls.length > 0) {
                 channel.hlsUrls.forEach(u => {
                     if (!list.some(i => i.url === u)) {
-                        list.push({ url: u, strictHd: true });
+                        list.push({ url: u, strictHd: strictHdFlag });
                     }
                 });
             }
-            return list.filter(item => !(failedOfficialHls[item.url] && (Date.now() - failedOfficialHls[item.url] < 180000)));
+
+            return list.filter(item => {
+                // Fatal Error വന്ന ലിങ്കുകൾ 60 സെക്കൻഡ് നേരത്തേക്ക് ഒഴിവാക്കുന്നു
+                if (failedOfficialHls[item.url] && (Date.now() - failedOfficialHls[item.url] < FAIL_BLOCK_MS)) {
+                    return false;
+                }
+                // HD റൗണ്ടുകളിൽ SD ആണെന്ന് തിരിച്ചറിഞ്ഞ ലിങ്കുകൾ ഒഴിവാക്കുന്നു (എന്നാൽ SD Fallback ഘട്ടത്തിൽ അനുവദിക്കുന്നു)
+                if (!allowSdFallback && sdFallbackUrls[item.url] && (Date.now() - sdFallbackUrls[item.url] < 300000)) {
+                    return false;
+                }
+                return true;
+            });
         }
 
         async function verifyFastHdManifest(url, requireStrictHd, timeoutMs = 600) {
@@ -1539,6 +1866,7 @@
                             if (effectiveHeight > maxH) maxH = effectiveHeight;
                         });
                         if (maxH > 0 && maxH < 720) {
+                            sdFallbackUrls[url] = Date.now();
                             throw new Error("Stream is SD (<720p)");
                         }
                     }
@@ -1548,7 +1876,6 @@
             } catch (err) {
                 clearTimeout(timer);
                 if (err && err.message === "Stream is SD (<720p)") {
-                    failedOfficialHls[url] = Date.now();
                     throw err;
                 }
                 return url;
@@ -1575,7 +1902,7 @@
                 return false;
             }
 
-            if (bestLevel !== -1) {
+            if (bestLevel !== -1 && !isLowBandwidthGuardActive) {
                 hlsObj.startLevel = bestLevel;
                 hlsObj.currentLevel = bestLevel;
                 hlsObj.nextLevel = bestLevel;
@@ -1584,9 +1911,31 @@
             return true;
         }
 
+        // HLS സെൽഫ്-ഹീൽ + നെറ്റ്‌വർക്ക് ബാൻഡ്‌വിഡ്ത്ത് മോണിറ്ററിംഗ് (FRAG_LOADED) + hlsObj._srcUrl
         function bindMainHlsEvents(hlsObj, hlsUrl, session) {
+            hlsObj._srcUrl = hlsUrl;
+            hlsObj._netHealAttempted = false;
+            hlsObj._mediaHealAttempted = false;
+
+            hlsObj.on(Hls.Events.FRAG_LOADED, (event, data) => {
+                if (hlsInstance !== hlsObj) return;
+                let bwEstimate = hlsObj.bandwidthEstimate;
+                if ((!bwEstimate || !isFinite(bwEstimate)) && data && data.frag && data.frag.stats) {
+                    const stats = data.frag.stats;
+                    const durMs = (stats.loading && stats.loading.end && stats.loading.start)
+                        ? (stats.loading.end - stats.loading.start)
+                        : 0;
+                    if (durMs > 15 && stats.total > 0) {
+                        bwEstimate = (stats.total * 8 * 1000) / durMs;
+                    }
+                }
+                if (bwEstimate && isFinite(bwEstimate) && bwEstimate > 0) {
+                    updateBandwidthTelemetry(bwEstimate);
+                }
+            });
+
             hlsObj.on(Hls.Events.LEVEL_SWITCHED, (event, data) => {
-                if (!hlsObj || !hlsObj.levels || hlsObj.levels.length <= 1) return;
+                if (!hlsObj || !hlsObj.levels || hlsObj.levels.length <= 1 || isLowBandwidthGuardActive) return;
                 let bestIdx = 0;
                 let maxH = 0;
                 let maxB = 0;
@@ -1607,10 +1956,25 @@
 
             hlsObj.on(Hls.Events.ERROR, (event, data) => {
                 if (data.fatal && hlsInstance === hlsObj) {
+                    if (data.type === Hls.ErrorTypes.NETWORK_ERROR && !hlsObj._netHealAttempted) {
+                        hlsObj._netHealAttempted = true;
+                        try {
+                            hlsObj.startLoad();
+                            return;
+                        } catch (e) {}
+                    } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR && !hlsObj._mediaHealAttempted) {
+                        hlsObj._mediaHealAttempted = true;
+                        try {
+                            hlsObj.recoverMediaError();
+                            return;
+                        } catch (e) {}
+                    }
+
+                    const srcUrl = hlsObj._srcUrl || hlsUrl;
                     stopHlsPlayer();
                     if (session === playSessionId && currentIndex !== -1) {
-                        failedOfficialHls[hlsUrl] = Date.now();
-                        if (bestChannelHlsUrl[channels[currentIndex].id] === hlsUrl) {
+                        failedOfficialHls[srcUrl] = Date.now();
+                        if (bestChannelHlsUrl[channels[currentIndex].id] === srcUrl) {
                             delete bestChannelHlsUrl[channels[currentIndex].id];
                             saveBestHlsCache();
                         }
@@ -1623,6 +1987,9 @@
         // അടുത്തതും മുമ്പത്തേതുമായ ചാനലുകൾ പശ്ചാത്തലത്തിൽ അതിവേഗം Preload ചെയ്യുന്നു
         async function preloadChannelIntoSlot(slotKey, targetIndex) {
             if (targetIndex < 0 || targetIndex >= channels.length) return;
+            // നെറ്റ്‌വർക്ക് സ്പീഡ് വളരെ കുറവാണെങ്കിൽ നിലവിലെ ചാനൽ ബഫർ ആകാതിരിക്കാൻ പ്രീലോഡ് താൽക്കാലികമായി ഒഴിവാക്കുന്നു
+            if (isLowBandwidthGuardActive && currentBandwidthMbps > 0 && currentBandwidthMbps < 1.5) return;
+
             const channel = channels[targetIndex];
             const slot = preloadPool[slotKey];
             if (!slot || !window.Hls || !Hls.isSupported()) return;
@@ -1631,14 +1998,14 @@
 
             clearPreloadSlot(slotKey);
 
-            const candidates = getCandidateHlsList(channel);
+            const candidates = getCandidateHlsList(channel, false);
             if (candidates.length === 0) return;
 
             let chosenUrl = candidates[0].url;
             if (candidates.length > 1 && !bestChannelHlsUrl[channel.id]) {
                 try {
                     const fastest = await Promise.any(candidates.map(async c => {
-                        await verifyFastHdManifest(c.url, c.strictHd, 550);
+                        await verifyFastHdManifest(c.url, true, 750);
                         return c.url;
                     }));
                     chosenUrl = fastest;
@@ -1662,11 +2029,12 @@
                 startLevel: -1,
                 capLevelToPlayerSize: false,
                 abrEwmaDefaultEstimate: 50000000,
-                manifestLoadingTimeOut: 900,
-                levelLoadingTimeOut: 900,
-                fragLoadingTimeOut: 1400
+                manifestLoadingTimeOut: 1500,
+                levelLoadingTimeOut: 1500,
+                fragLoadingTimeOut: 2000
             });
 
+            preHls._srcUrl = chosenUrl;
             slot.channelId = channel.id;
             slot.url = chosenUrl;
             slot.hls = preHls;
@@ -1679,13 +2047,12 @@
                 if (slot.hls !== preHls) return;
                 const isHdOk = lockHlsHighestLevel(preHls, true);
                 if (!isHdOk) {
-                    failedOfficialHls[chosenUrl] = Date.now();
+                    sdFallbackUrls[chosenUrl] = Date.now();
                     clearPreloadSlot(slotKey);
                     return;
                 }
                 bestChannelHlsUrl[channel.id] = chosenUrl;
                 saveBestHlsCache();
-                // മാനിഫെസ്റ്റ് റെഡിയായ നിമിഷം തന്നെ സ്ലോട്ട് Instant Swap-ന് തയ്യാറാകുന്നു (FRAG_BUFFERED കാത്തിരിപ്പില്ല)
                 slot.ready = true;
                 preloadVideo.muted = true;
                 preloadVideo.play().catch(() => {});
@@ -1693,13 +2060,17 @@
 
             preHls.on(Hls.Events.ERROR, (ev, data) => {
                 if (data.fatal && slot.hls === preHls) {
-                    failedOfficialHls[chosenUrl] = Date.now();
+                    const isTimeoutError = data.details === Hls.ErrorDetails.MANIFEST_LOAD_TIMEOUT ||
+                                           data.details === Hls.ErrorDetails.LEVEL_LOAD_TIMEOUT ||
+                                           data.details === Hls.ErrorDetails.FRAG_LOAD_TIMEOUT;
+                    if (!isTimeoutError) {
+                        failedOfficialHls[preHls._srcUrl || chosenUrl] = Date.now();
+                    }
                     clearPreloadSlot(slotKey);
                 }
             });
         }
 
-        // ഗ്രിഡിലോ ഐക്കണിലോ വിരൽ തൊടുമ്പോൾ തന്നെ ആ ചാനൽ Pre-warm ചെയ്യുന്നു
         function prewarmChannelById(id) {
             const targetIdx = channels.findIndex(c => c.id === id);
             if (targetIdx === -1 || targetIdx === currentIndex) return;
@@ -1728,7 +2099,8 @@
             };
         }
 
-        function scheduleNeighborPreloads() {
+        // പ്രീലോഡ് playing-ന് 3 സെക്കൻഡ് ശേഷം മാത്രം
+        function scheduleNeighborPreloads(delayMs = 3000) {
             clearTimeout(preloadScheduleTimer);
             preloadScheduleTimer = setTimeout(() => {
                 if (currentIndex === -1) return;
@@ -1739,10 +2111,10 @@
                 if (prevIdx !== -1 && prevIdx !== currentIndex && prevIdx !== nextIdx) {
                     preloadChannelIntoSlot('prev', prevIdx);
                 }
-            }, 80); // 80ms-ൽ ഉടൻ അടുത്ത ചാനൽ പ്രീലോഡ് തുടങ്ങുന്നു
+            }, delayMs);
         }
 
-        // Preload ചെയ്ത വീഡിയോ എലമെന്റ് തൽക്ഷണം Main Player ആയി മാറ്റുന്നു
+        // ഘട്ടം 1: Preload ചെയ്ത വീഡിയോ എലമെന്റ് തൽക്ഷണം Main Player ആയി മാറ്റുന്നു
         function tryActivatePreloadedChannel(channel, session) {
             const slotKey = ['next', 'prev'].find(k =>
                 preloadPool[k].channelId === channel.id &&
@@ -1758,10 +2130,12 @@
 
             if (!preloadedVideo || !currentMainVideo) return false;
 
+            stopStallMonitor();
             if (hlsInstance) {
                 try { hlsInstance.destroy(); } catch (e) {}
                 hlsInstance = null;
             }
+            currentMainVideo.onplaying = null;
             currentMainVideo.pause();
             currentMainVideo.removeAttribute('src');
             currentMainVideo.load();
@@ -1775,7 +2149,7 @@
             preloadedVideo.muted = isMuted;
 
             hlsInstance = slot.hls;
-            const activeUrl = slot.url;
+            const activeUrl = slot.hls._srcUrl || slot.url;
 
             slot.hls = null;
             slot.channelId = -1;
@@ -1783,15 +2157,23 @@
             slot.ready = false;
 
             usingHls = true;
+            clearYouTubeWatchdog();
             stopYouTubeApiPolling();
             setAdShieldState(false);
+            hideChannelUnavailableScreen();
             sendPlayerCommand('stopVideo');
             if (iframe) iframe.style.display = 'none';
 
             bindMainHlsEvents(hlsInstance, activeUrl, session);
+            attachPlaybackLifecycleListeners(preloadedVideo, session);
+            startStallMonitor(session);
 
             if (hlsInstance.liveSyncPosition && Math.abs(preloadedVideo.currentTime - hlsInstance.liveSyncPosition) > 4) {
                 try { preloadedVideo.currentTime = hlsInstance.liveSyncPosition; } catch (e) {}
+            }
+
+            if (!preloadedVideo.paused) {
+                scheduleNeighborPreloads(3000);
             }
 
             preloadedVideo.play().catch(() => {
@@ -1802,13 +2184,16 @@
             return true;
         }
 
-        // Parallel HLS Race: ഒന്നിലധികം ലിങ്കുകൾ ഉള്ള ചാനലുകളിൽ കാത്തിരിപ്പില്ലാതെ ഏറ്റവും വേഗം റെഡിയാകുന്ന ലിങ്ക് തിരഞ്ഞെടുക്കുന്നു
-        function raceHlsCandidates(candidates, session, timeoutMs = 850) {
+        // Parallel HLS Race: Timeout ആകുന്ന ലിങ്കുകളെ ബ്ലോക്ക് ചെയ്യാതെ (failedOfficialHls-ൽ ഇടാതെ) റൗണ്ട് 2-ലേക്ക് അവസരം നൽകുന്നു
+        function raceHlsCandidates(candidates, session, timeoutMs = 1500, requireStrictHd = true) {
             return new Promise((resolve, reject) => {
-                if (session !== playSessionId || candidates.length === 0) return reject();
+                if (session !== playSessionId || candidates.length === 0) {
+                    return reject({ reason: "EMPTY_OR_STALE", hadTimeout: false });
+                }
 
                 let settled = false;
                 let failCount = 0;
+                let timeoutCount = 0;
                 const tempControllers = [];
 
                 const cleanupLosers = (winnerHls) => {
@@ -1823,9 +2208,12 @@
                     if (!settled) {
                         settled = true;
                         cleanupLosers(null);
-                        reject(new Error("Race timeout"));
+                        reject({ reason: "TIMEOUT", hadTimeout: true });
                     }
                 }, timeoutMs);
+
+                const initMaxBuf = isLowBandwidthGuardActive ? 8 : 4;
+                const initMaxMaxBuf = isLowBandwidthGuardActive ? 15 : 10;
 
                 candidates.forEach(cand => {
                     const hls = new Hls({
@@ -1833,8 +2221,8 @@
                         lowLatencyMode: true,
                         liveSyncDurationCount: 1.0,
                         liveMaxLatencyDurationCount: 2.3,
-                        maxBufferLength: 4,
-                        maxMaxBufferLength: 10,
+                        maxBufferLength: initMaxBuf,
+                        maxMaxBufferLength: initMaxMaxBuf,
                         backBufferLength: 2,
                         startFragPrefetch: true,
                         startLevel: -1,
@@ -1843,9 +2231,10 @@
                         manifestLoadingTimeOut: timeoutMs,
                         manifestLoadingMaxRetry: 0,
                         levelLoadingTimeOut: timeoutMs,
-                        fragLoadingTimeOut: 1500
+                        fragLoadingTimeOut: Math.max(timeoutMs, 1800)
                     });
 
+                    hls._srcUrl = cand.url;
                     tempControllers.push({ hls, url: cand.url });
 
                     hls.on(Hls.Events.MANIFEST_PARSED, () => {
@@ -1854,15 +2243,15 @@
                             return;
                         }
 
-                        const isHdOk = lockHlsHighestLevel(hls, cand.strictHd);
+                        const isHdOk = lockHlsHighestLevel(hls, requireStrictHd);
                         if (!isHdOk) {
-                            failedOfficialHls[cand.url] = Date.now();
+                            sdFallbackUrls[hls._srcUrl] = Date.now();
                             try { hls.destroy(); } catch (e) {}
                             failCount++;
                             if (failCount === candidates.length && !settled) {
                                 settled = true;
                                 clearTimeout(raceTimer);
-                                reject(new Error("All SD or failed"));
+                                reject({ reason: timeoutCount > 0 ? "TIMEOUT" : "ALL_SD_OR_FATAL", hadTimeout: timeoutCount > 0 });
                             }
                             return;
                         }
@@ -1870,18 +2259,26 @@
                         settled = true;
                         clearTimeout(raceTimer);
                         cleanupLosers(hls);
-                        resolve({ hls, url: cand.url });
+                        resolve({ hls, url: hls._srcUrl });
                     });
 
                     hls.on(Hls.Events.ERROR, (ev, data) => {
                         if (data.fatal && !settled) {
-                            failedOfficialHls[cand.url] = Date.now();
+                            const isTimeoutError = data.details === Hls.ErrorDetails.MANIFEST_LOAD_TIMEOUT ||
+                                                   data.details === Hls.ErrorDetails.LEVEL_LOAD_TIMEOUT ||
+                                                   data.details === Hls.ErrorDetails.FRAG_LOAD_TIMEOUT;
+                            if (isTimeoutError) {
+                                timeoutCount++;
+                            } else {
+                                failedOfficialHls[hls._srcUrl] = Date.now();
+                            }
+
                             try { hls.destroy(); } catch (e) {}
                             failCount++;
                             if (failCount === candidates.length && !settled) {
                                 settled = true;
                                 clearTimeout(raceTimer);
-                                reject(new Error("All fatal"));
+                                reject({ reason: timeoutCount > 0 ? "TIMEOUT" : "ALL_FATAL", hadTimeout: timeoutCount > 0 });
                             }
                         }
                     });
@@ -1891,47 +2288,84 @@
             });
         }
 
-        async function tryOfficialHlsStreams(channel, session) {
-            const activeCandidates = getCandidateHlsList(channel);
-            if (activeCandidates.length === 0) return false;
+        function attachWinnerHlsToPlayer(winner, channel, session, isSdFallback = false) {
+            const videoEl = getActiveMainVideoEl();
+            const iframe = document.getElementById('tv-player');
+            if (!videoEl) return false;
+
+            stopHlsPlayer();
+            hlsInstance = winner.hls;
+            const finalUrl = winner.hls._srcUrl || winner.url;
+
+            if (!isSdFallback) {
+                verifiedHdUrls[finalUrl] = true;
+                bestChannelHlsUrl[channel.id] = finalUrl;
+                saveBestHlsCache();
+            }
+
+            usingHls = true;
+            clearYouTubeWatchdog();
+            stopYouTubeApiPolling();
+            setAdShieldState(false);
+            hideChannelUnavailableScreen();
+            sendPlayerCommand('stopVideo');
+
+            if (iframe) iframe.style.display = 'none';
+            videoEl.style.display = 'block';
+            videoEl.muted = isMuted;
+
+            attachPlaybackLifecycleListeners(videoEl, session);
+            hlsInstance.attachMedia(videoEl);
+            videoEl.play().catch(() => {
+                videoEl.muted = true;
+                videoEl.play().catch(() => {});
+            });
+
+            bindMainHlsEvents(hlsInstance, finalUrl, session);
+            startStallMonitor(session);
+            return true;
+        }
+
+        // ഘട്ടം 2 & 3: HD റൗണ്ട് 1 (1500ms) -> എല്ലാം ടൈംഔട്ട് ആയാൽ മാത്രം HD റൗണ്ട് 2 (2500ms)
+        async function tryOfficialHdHlsTwoRounds(channel, session) {
+            const round1Candidates = getCandidateHlsList(channel, false);
+            if (round1Candidates.length === 0) return false;
 
             const videoEl = getActiveMainVideoEl();
             const iframe = document.getElementById('tv-player');
             if (!videoEl) return false;
 
             if (window.Hls && Hls.isSupported()) {
+                // --- HD റൗണ്ട് 1: എല്ലാ HD ലിങ്കുകളും ഒരേസമയം (Adaptive Timeout: 1500ms) ---
                 try {
-                    // ലഭ്യമായ ലിങ്കുകൾ ഒരേസമയം (Parallel) പരിശോധിച്ച് ആദ്യം റെഡിയാകുന്ന 1080p സ്ട്രീം എടുക്കുന്നു
-                    const winner = await raceHlsCandidates(activeCandidates.slice(0, 3), session, 850);
+                    const r1Timeout = getAdaptiveRaceTimeout(1500);
+                    const winnerR1 = await raceHlsCandidates(round1Candidates, session, r1Timeout, true);
                     if (session !== playSessionId) {
-                        try { winner.hls.destroy(); } catch (e) {}
+                        try { winnerR1.hls.destroy(); } catch (e) {}
                         return false;
                     }
+                    return attachWinnerHlsToPlayer(winnerR1, channel, session, false);
+                } catch (errR1) {
+                    if (session !== playSessionId) return false;
 
-                    stopHlsPlayer();
-                    hlsInstance = winner.hls;
-                    verifiedHdUrls[winner.url] = true;
-                    bestChannelHlsUrl[channel.id] = winner.url;
-                    saveBestHlsCache();
+                    // --- HD റൗണ്ട് 2: റൗണ്ട് 1-ൽ ടൈംഔട്ട് ആയെങ്കിൽ മാത്രം സ്ലോ HD ലിങ്കുകൾക്ക് രണ്ടാമതൊരു അവസരം (Timeout: 2500ms) ---
+                    const round2Candidates = getCandidateHlsList(channel, false);
+                    if (errR1 && errR1.hadTimeout && round2Candidates.length > 0) {
+                        const statusEl = document.getElementById('channel-osd-status');
+                        if (statusEl) statusEl.innerText = "⏳ HD RETRY (ROUND 2)...";
 
-                    usingHls = true;
-                    stopYouTubeApiPolling();
-                    setAdShieldState(false);
-                    sendPlayerCommand('stopVideo');
+                        try {
+                            const r2Timeout = getAdaptiveRaceTimeout(2500);
+                            const winnerR2 = await raceHlsCandidates(round2Candidates, session, r2Timeout, true);
+                            if (session !== playSessionId) {
+                                try { winnerR2.hls.destroy(); } catch (e) {}
+                                return false;
+                            }
+                            if (statusEl) statusEl.innerText = "🔴 LIVE 1080p HD";
+                            return attachWinnerHlsToPlayer(winnerR2, channel, session, false);
+                        } catch (errR2) {}
+                    }
 
-                    if (iframe) iframe.style.display = 'none';
-                    videoEl.style.display = 'block';
-                    videoEl.muted = isMuted;
-
-                    hlsInstance.attachMedia(videoEl);
-                    videoEl.play().catch(() => {
-                        videoEl.muted = true;
-                        videoEl.play().catch(() => {});
-                    });
-
-                    bindMainHlsEvents(hlsInstance, winner.url, session);
-                    return true;
-                } catch (e) {
                     if (bestChannelHlsUrl[channel.id]) {
                         delete bestChannelHlsUrl[channel.id];
                         saveBestHlsCache();
@@ -1939,21 +2373,25 @@
                     return false;
                 }
             } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
-                for (const item of activeCandidates) {
+                for (const item of round1Candidates) {
                     if (session !== playSessionId) return false;
                     try {
                         await new Promise((resolve, reject) => {
                             stopHlsPlayer();
-                            const t = setTimeout(() => reject(), 900);
+                            const t = setTimeout(() => reject(), 1500);
                             videoEl.addEventListener('loadedmetadata', () => {
                                 clearTimeout(t);
                                 usingHls = true;
+                                clearYouTubeWatchdog();
                                 stopYouTubeApiPolling();
                                 setAdShieldState(false);
+                                hideChannelUnavailableScreen();
                                 sendPlayerCommand('stopVideo');
                                 iframe.style.display = 'none';
                                 videoEl.style.display = 'block';
                                 videoEl.muted = isMuted;
+                                attachPlaybackLifecycleListeners(videoEl, session);
+                                startStallMonitor(session);
                                 videoEl.play().then(resolve).catch(resolve);
                             }, { once: true });
                             videoEl.addEventListener('error', () => {
@@ -1970,11 +2408,95 @@
             return false;
         }
 
-        function loadYouTubeEmbed(channel, forceIframeReload = false) {
-            if (usingHls) return;
+        // ഘട്ടം 5: YouTube-ഉം പരാജയപ്പെട്ടാൽ അവസാന ആശ്രയമായി SD HLS പ്ലേ ചെയ്യുന്നു
+        async function trySdHlsLastResort(channel, session) {
+            if (session !== playSessionId) return false;
+            const sdCandidates = getCandidateHlsList(channel, true);
+            if (sdCandidates.length === 0) return false;
+
+            const videoEl = getActiveMainVideoEl();
+            const iframe = document.getElementById('tv-player');
+            if (!videoEl) return false;
+
+            if (window.Hls && Hls.isSupported()) {
+                try {
+                    const winnerSd = await raceHlsCandidates(sdCandidates, session, 2200, false);
+                    if (session !== playSessionId) {
+                        try { winnerSd.hls.destroy(); } catch (e) {}
+                        return false;
+                    }
+                    const statusEl = document.getElementById('channel-osd-status');
+                    const banner = document.getElementById('channel-osd-banner');
+                    if (statusEl) statusEl.innerText = "📺 LIVE STREAM (SD BACKUP)";
+                    if (banner) {
+                        banner.classList.add('show');
+                        clearTimeout(osdBannerTimer);
+                        osdBannerTimer = setTimeout(() => banner.classList.remove('show'), 1800);
+                    }
+                    return attachWinnerHlsToPlayer(winnerSd, channel, session, true);
+                } catch (e) {
+                    return false;
+                }
+            } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
+                for (const item of sdCandidates) {
+                    if (session !== playSessionId) return false;
+                    try {
+                        await new Promise((resolve, reject) => {
+                            stopHlsPlayer();
+                            const t = setTimeout(() => reject(), 2000);
+                            videoEl.addEventListener('loadedmetadata', () => {
+                                clearTimeout(t);
+                                usingHls = true;
+                                clearYouTubeWatchdog();
+                                stopYouTubeApiPolling();
+                                setAdShieldState(false);
+                                hideChannelUnavailableScreen();
+                                sendPlayerCommand('stopVideo');
+                                iframe.style.display = 'none';
+                                videoEl.style.display = 'block';
+                                videoEl.muted = isMuted;
+                                attachPlaybackLifecycleListeners(videoEl, session);
+                                startStallMonitor(session);
+                                videoEl.play().then(resolve).catch(resolve);
+                            }, { once: true });
+                            videoEl.addEventListener('error', () => {
+                                clearTimeout(t);
+                                reject();
+                            }, { once: true });
+                            videoEl.src = item.url;
+                            videoEl.load();
+                        });
+                        return true;
+                    } catch (e) {}
+                }
+            }
+            return false;
+        }
+
+        // മുഴുവൻ ഫാൾബാക്ക് ശൃംഖലയും ഒരു ശ്രമമായി കണക്കാക്കി പരമാവധി 3 തവണ റിക്കവർ ചെയ്യുന്നു, അല്ലെങ്കിൽ "ചാനൽ ലഭ്യമല്ല" സ്ക്രീൻ കാണിക്കുന്നു
+        function handleFullPipelineExhaustion(channel, session) {
+            if (session !== playSessionId || usingHls || ytConfirmedPlaying || autoRecoverInProgress) return;
+            const currentRetries = channelRetryCounts[channel.id] || 0;
+            if (currentRetries < MAX_CHANNEL_RETRIES) {
+                channelRetryCounts[channel.id] = currentRetries + 1;
+                refreshCurrentChannel(true);
+            } else {
+                showChannelUnavailableScreen(channel);
+            }
+        }
+
+        // ഘട്ടം 4: YouTube 1080p + 4 സെക്കൻഡ് Watchdog ടൈമർ (4s-നുള്ളിൽ പ്ലേ ആയില്ലെങ്കിൽ ഉടൻ SD HLS-ലേക്ക് മാറുന്നു)
+        function loadYouTubeEmbedWithWatchdog(channel, session, forceIframeReload = false) {
+            if (usingHls || session !== playSessionId) return;
             const iframe = document.getElementById('tv-player');
             iframe.style.display = 'block';
             const muteParam = isMuted ? 1 : 0;
+
+            ytConfirmedPlaying = false;
+            clearYouTubeWatchdog();
+
+            const statusEl = document.getElementById('channel-osd-status');
+            if (statusEl) statusEl.innerText = "▶️ YOUTUBE 1080p HD";
 
             adReloadBurstCount = 0;
             lastAdEvictTime = 0;
@@ -1996,6 +2518,17 @@
                 const originParam = location.origin && location.origin !== 'null' ? `&origin=${encodeURIComponent(location.origin)}` : '';
                 iframe.src = `https://www.youtube-nocookie.com/embed/${channel.liveVideoId}?autoplay=1&mute=${muteParam}&enablejsapi=1&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&vq=hd1080${originParam}`;
             }
+
+            // 4 സെക്കൻഡ് YouTube Watchdog Timer
+            ytFallbackWatchdog = setTimeout(async () => {
+                if (session !== playSessionId || usingHls || ytConfirmedPlaying) return;
+
+                // 4 സെക്കൻഡിനുള്ളിൽ YouTube പ്ലേ ആയില്ലെങ്കിൽ ഉടൻ SD HLS പരീക്ഷിക്കുന്നു
+                const sdPlayed = await trySdHlsLastResort(channel, session);
+                if (!sdPlayed) {
+                    handleFullPipelineExhaustion(channel, session);
+                }
+            }, 4000);
         }
 
         function triggerCinematicSwitchTransition(channel, isInstantPreload = false, skipFade = false) {
@@ -2021,7 +2554,10 @@
                     this.src = `https://via.placeholder.com/24/1e1e1e/ffffff?text=${channel.name.charAt(0)}`;
                 };
                 nameEl.innerText = channel.name;
-                statusEl.innerText = isInstantPreload ? "⚡ INSTANT 1080p HD" : "🔴 LIVE 1080p HD";
+                const bwTag = currentBandwidthMbps > 0 ? ` • ${currentBandwidthMbps.toFixed(1)} Mbps` : '';
+                statusEl.innerText = isInstantPreload
+                    ? `⚡ INSTANT 1080p HD${bwTag}`
+                    : `🔴 LIVE 1080p HD${bwTag}`;
                 banner.classList.add('show');
                 clearTimeout(osdBannerTimer);
                 osdBannerTimer = setTimeout(() => {
@@ -2043,16 +2579,18 @@
 
             playerBox.classList.toggle('ch-mediaone', channel.id === 4);
 
+            clearTimeout(preloadScheduleTimer);
+            clearYouTubeWatchdog();
             setAdShieldState(false);
+            hideChannelUnavailableScreen();
             adReloadBurstCount = 0;
             requestWakeLock();
             updateFsActiveIcon();
             updateToastUI();
 
-            // 1. Preload ബഫറിൽ ചാനൽ തയ്യാറാണെങ്കിൽ കാത്തിരിപ്പില്ലാതെ തൽക്ഷണം പ്ലേ ചെയ്യുന്നു
+            // 1. Preload → തയ്യാറായ ചാനൽ ഉണ്ടെങ്കിൽ തൽക്ഷണം പ്ലേ
             if (!forceIframeReload && tryActivatePreloadedChannel(channel, session)) {
                 triggerCinematicSwitchTransition(channel, true, isFirstBoot);
-                scheduleNeighborPreloads();
                 return;
             }
 
@@ -2066,17 +2604,17 @@
                         if (data && data.videoId && !expiredIds.includes(data.videoId)) {
                             channel.liveVideoId = data.videoId;
                             savedLiveIds[channel.id] = data.videoId;
-                            localStorage.setItem('news_tv_live_ids', JSON.stringify(savedLiveIds));
+                            safeSetStorage('news_tv_live_ids', JSON.stringify(savedLiveIds));
                         }
                     })
                     .catch(() => {});
             }
 
-            const hlsSuccess = await tryOfficialHlsStreams(channel, session);
+            // 2 & 3. HD റൗണ്ട് 1 (1500ms) -> എല്ലാം ടൈംഔട്ട് ആയാൽ മാത്രം HD റൗണ്ട് 2 (2500ms)
+            const hlsHdSuccess = await tryOfficialHdHlsTwoRounds(channel, session);
             if (session !== playSessionId) return;
 
-            if (hlsSuccess) {
-                scheduleNeighborPreloads();
+            if (hlsHdSuccess) {
                 return;
             }
 
@@ -2087,8 +2625,9 @@
             }
 
             if (session !== playSessionId) return;
-            loadYouTubeEmbed(channel, forceIframeReload);
-            scheduleNeighborPreloads();
+
+            // 4 & 5. YouTube 1080p (4s Watchdog Timer) -> പരാജയപ്പെട്ടാൽ SD HLS Last Resort
+            loadYouTubeEmbedWithWatchdog(channel, session, forceIframeReload);
         }
 
         function renderClockContent() {
@@ -2256,15 +2795,15 @@
             } else {
                 favorites.push(id);
             }
-            localStorage.setItem('news_tv_favs', JSON.stringify(favorites));
+            safeSetStorage('news_tv_favs', JSON.stringify(favorites));
             buildGrid();
-            scheduleNeighborPreloads();
+            scheduleNeighborPreloads(3000);
         }
 
         function playChannelById(id) {
             const index = channels.findIndex(ch => ch.id === id);
             if (index !== -1) {
-                attemptedAutoRecover[id] = false;
+                channelRetryCounts[id] = 0;
                 playChannel(index);
             }
         }
@@ -2298,7 +2837,7 @@
             });
         }
 
-        window.addEventListener('message', (event) => {
+        window.addEventListener('message', async (event) => {
             if (!event.origin.includes('youtube.com') && !event.origin.includes('youtube-nocookie.com')) return;
             if (usingHls) return;
 
@@ -2311,6 +2850,18 @@
                     const playingId = info.videoData && info.videoData.video_id ? info.videoData.video_id : null;
                     const dur = info.duration;
                     const cur = info.currentTime;
+                    const pState = info.playerState;
+
+                    // YouTube പ്ലേ ചെയ്യാൻ തുടങ്ങിയാൽ (playerState === 1 അല്ലെങ്കിൽ currentTime > 0) 4s Watchdog ടൈമർ നിർത്തുന്നു
+                    if (pState === 1 || (typeof cur === 'number' && cur > 0.1)) {
+                        if (!ytConfirmedPlaying) {
+                            ytConfirmedPlaying = true;
+                            clearYouTubeWatchdog();
+                            hideChannelUnavailableScreen();
+                            channelRetryCounts[channels[currentIndex].id] = 0;
+                            scheduleNeighborPreloads(3000);
+                        }
+                    }
 
                     const isMismatchedAdId = Boolean(playingId && expectedId && playingId !== expectedId);
                     const isShortAdDuration = Boolean(typeof dur === 'number' && dur > 0 && dur <= 180);
@@ -2328,11 +2879,15 @@
                 const isError = data.event === 'onError';
 
                 if ((isError || isEnded) && currentIndex !== -1 && !autoRecoverInProgress) {
+                    clearYouTubeWatchdog();
                     const ch = channels[currentIndex];
-                    if (!attemptedAutoRecover[ch.id]) {
-                        attemptedAutoRecover[ch.id] = true;
-                        refreshCurrentChannel(true);
-                    }
+                    const activeSession = playSessionId;
+
+                    // YouTube എറർ ആയാൽ ഉടൻ അവസാന ആശ്രയമായ SD HLS ഉണ്ടോ എന്ന് നോക്കുന്നു
+                    const sdRecovered = await trySdHlsLastResort(ch, activeSession);
+                    if (sdRecovered) return;
+
+                    handleFullPipelineExhaustion(ch, activeSession);
                 }
             } catch (e) {}
         });
@@ -2551,6 +3106,11 @@
                 return;
             }
 
+            if (!isAutoRecovery) {
+                channelRetryCounts[channels[currentIndex].id] = 0;
+                hideChannelUnavailableScreen();
+            }
+
             if (autoRecoverInProgress) return;
             autoRecoverInProgress = true;
 
@@ -2575,10 +3135,16 @@
             if (currentChannel.streamKey && githubStreams[currentChannel.streamKey]) {
                 const ghEntry = githubStreams[currentChannel.streamKey];
                 const ghUrl = typeof ghEntry === 'string' ? ghEntry : (ghEntry && ghEntry.url ? ghEntry.url : null);
-                if (ghUrl) delete failedOfficialHls[ghUrl];
+                if (ghUrl) {
+                    delete failedOfficialHls[ghUrl];
+                    delete sdFallbackUrls[ghUrl];
+                }
             }
             if (currentChannel.hlsUrls) {
-                currentChannel.hlsUrls.forEach(u => delete failedOfficialHls[u]);
+                currentChannel.hlsUrls.forEach(u => {
+                    delete failedOfficialHls[u];
+                    delete sdFallbackUrls[u];
+                });
             }
 
             try {
@@ -2602,7 +3168,7 @@
                     addToExpired(previousVideoId);
                     currentChannel.liveVideoId = newVideoId;
                     savedLiveIds[currentChannel.id] = newVideoId;
-                    localStorage.setItem('news_tv_live_ids', JSON.stringify(savedLiveIds));
+                    safeSetStorage('news_tv_live_ids', JSON.stringify(savedLiveIds));
                 }
             } catch (err) {} finally {
                 autoRecoverInProgress = false;
@@ -2625,8 +3191,10 @@
             if (playerBox && playerBox.style.display === "block") {
                 stopHlsPlayer();
                 clearAllPreloads();
+                clearYouTubeWatchdog();
                 stopYouTubeApiPolling();
                 setAdShieldState(false);
+                hideChannelUnavailableScreen();
                 sendPlayerCommand('stopVideo');
                 iframe.src = "";
                 playerReady = false;
@@ -2656,7 +3224,7 @@
                 playChannelById(favorites[nextFavIndex]);
             } else {
                 let newIndex = (currentIndex + direction + channels.length) % channels.length;
-                attemptedAutoRecover[channels[newIndex].id] = false;
+                channelRetryCounts[channels[newIndex].id] = 0;
                 playChannel(newIndex);
             }
         }
@@ -2830,6 +3398,7 @@
             appInitialized = true;
 
             document.getElementById('mute-svg-icon').innerHTML = svgMuted;
+            initNetworkBandwidthMonitor();
             
             playChannel(0, true);
             loadGitHubActionStreams();
