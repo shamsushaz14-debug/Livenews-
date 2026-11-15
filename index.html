@@ -692,7 +692,7 @@
             display: none;
         }
 
-        .bottom-left-controls { left: max(18px, env(safe-area-inset-left)); }
+        .bottom-left-controls { left: max(18px, env(safe-area-inset-left)); gap: 10px; }
         .bottom-right-group { right: max(18px, env(safe-area-inset-right)); gap: 10px; }
 
         .player-container.fullscreen-mode .bottom-left-controls,
@@ -749,6 +749,32 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.4);
         }
         .fs-btn.mute-btn svg { width: 16px; height: 16px; fill: #ffffff; }
+
+        /* Exact Same 34x34 Round Shape & Style as Mute Button for Live Time */
+        #fs-live-clock {
+            flex-direction: column;
+            line-height: 1;
+            gap: 1px;
+            transition: opacity 0.3s ease-in-out, transform 0.2s ease;
+        }
+        .fs-clock-main {
+            font-size: 0.52rem;
+            font-weight: 800;
+            color: #ffffff;
+            letter-spacing: -0.2px;
+        }
+        .fs-clock-sub {
+            font-size: 0.38rem;
+            font-weight: 700;
+            color: rgba(255, 255, 255, 0.78);
+            letter-spacing: 0.2px;
+        }
+        .fs-clock-day {
+            font-size: 0.52rem;
+            font-weight: 800;
+            color: #ffffff;
+            letter-spacing: 0.2px;
+        }
 
         .round-action-btn {
             width: 34px;
@@ -1103,6 +1129,7 @@
                 <button class="fs-btn mute-btn" id="side-mute-btn" onclick="toggleMute()" title="Mute/Unmute">
                     <svg id="mute-svg-icon" viewBox="0 0 24 24"></svg>
                 </button>
+                <button class="fs-btn mute-btn" id="fs-live-clock" onclick="toggleClockBlink()" title="Live Time"></button>
             </div>
 
             <div class="bottom-right-group">
@@ -2632,7 +2659,7 @@
 
         function renderClockContent() {
             const clockEl = document.getElementById('live-clock');
-            if (!clockEl) return;
+            const fsClockEl = document.getElementById('fs-live-clock');
             const now = new Date();
             
             if (showTimeMode) {
@@ -2642,22 +2669,37 @@
                 hours = hours % 12;
                 hours = hours ? hours : 12;
                 const strHours = String(hours).padStart(2, '0');
-                clockEl.innerHTML = `${strHours}:${minutes} <span class="ampm-transparent">${ampm}</span>`;
+
+                if (clockEl) {
+                    clockEl.innerHTML = `${strHours}:${minutes} <span class="ampm-transparent">${ampm}</span>`;
+                }
+                if (fsClockEl) {
+                    fsClockEl.innerHTML = `<span class="fs-clock-main">${strHours}:${minutes}</span><span class="fs-clock-sub">${ampm}</span>`;
+                }
             } else {
                 const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-                const dayName = days[now.getDay()];
-                clockEl.innerHTML = `<span class="ampm-transparent" style="font-size: 0.9rem;">${dayName}</span>`;
+                const shortDays = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+                const dayIdx = now.getDay();
+
+                if (clockEl) {
+                    clockEl.innerHTML = `<span class="ampm-transparent" style="font-size: 0.9rem;">${days[dayIdx]}</span>`;
+                }
+                if (fsClockEl) {
+                    fsClockEl.innerHTML = `<span class="fs-clock-day">${shortDays[dayIdx]}</span>`;
+                }
             }
         }
 
         function toggleClockBlink() {
             const clockEl = document.getElementById('live-clock');
-            if (!clockEl) return;
-            clockEl.style.opacity = '0';
+            const fsClockEl = document.getElementById('fs-live-clock');
+            if (clockEl) clockEl.style.opacity = '0';
+            if (fsClockEl) fsClockEl.style.opacity = '0';
             setTimeout(() => {
                 showTimeMode = !showTimeMode;
                 renderClockContent();
-                clockEl.style.opacity = '1';
+                if (clockEl) clockEl.style.opacity = '1';
+                if (fsClockEl) fsClockEl.style.opacity = '1';
             }, 300);
         }
 
