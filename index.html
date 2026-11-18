@@ -180,40 +180,60 @@
             100% { transform: translateX(-100%); }
         }
 
+        /* Squircle Header Buttons (Matches Card 12px Radius + Perfectly Centered SVG) */
         .theme-toggle-btn {
             background: rgba(255, 255, 255, 0.05);
             border: 1.5px solid var(--primary-teal);
             color: var(--text-color);
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
+            width: 34px;
+            height: 34px;
+            border-radius: 12px;
             cursor: pointer;
-            display: flex;
+            display: inline-flex;
             align-items: center;
             justify-content: center;
             box-shadow: 0 2px 6px rgba(0,0,0,0.25);
             outline: none;
             padding: 0;
+            line-height: 0;
+            flex-shrink: 0;
         }
 
-        .theme-toggle-btn svg { fill: var(--text-color); width: 16px; height: 16px; }
+        .theme-toggle-btn svg {
+            fill: var(--text-color);
+            width: 17px;
+            height: 17px;
+            display: block;
+            margin: auto;
+            flex-shrink: 0;
+        }
 
         .teal-refresh-btn {
             border: 1.5px solid var(--primary-teal);
-            background: transparent;
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.05);
+            width: 34px;
+            height: 34px;
+            border-radius: 12px;
             cursor: pointer;
-            display: flex;
+            display: inline-flex;
             align-items: center;
             justify-content: center;
             box-shadow: 0 2px 6px rgba(0,0,0,0.25);
             outline: none;
             padding: 0;
+            line-height: 0;
+            flex-shrink: 0;
         }
 
-        .teal-refresh-btn svg { fill: var(--text-color); width: 16px; height: 16px; }
+        .teal-refresh-btn svg {
+            fill: var(--text-color);
+            width: 17px;
+            height: 17px;
+            display: block;
+            margin: auto;
+            flex-shrink: 0;
+            transform-origin: 50% 50%;
+        }
 
         .theme-toggle-btn:active, .teal-refresh-btn:active { transform: scale(0.9); }
 
@@ -225,7 +245,7 @@
             border: 1px solid var(--border-color);
             color: var(--text-color);
             padding: 6px 10px;
-            border-radius: 16px;
+            border-radius: 12px;
             font-size: 0.8rem;
             cursor: pointer;
             font-weight: bold;
@@ -1249,10 +1269,10 @@
 
     <script>
         // ============================================================================
-        // UNIFIED APP & SERVICE WORKER CACHE VERSION (v32)
+        // UNIFIED APP & SERVICE WORKER CACHE VERSION (v33)
         // ഓരോ അപ്‌ഡേറ്റിലും ഈ ഒരൊറ്റ വേർഷൻ നമ്പർ കൂട്ടിയാൽ മതി
         // ============================================================================
-        const APP_VERSION = "v32";
+        const APP_VERSION = "v33";
         const CACHE_VERSION = APP_VERSION;
 
         if ('serviceWorker' in navigator) {
@@ -2136,7 +2156,7 @@
             }
 
             return list.filter(item => {
-                // പരാജയ ബ്ലോക്ക്: 60 സെക്കൻഡ് (FAIL_BLOCK_MS = 60000ms)
+                // പരാജയ ബ്ലോക്ക്: 60 സെക്കൻഡ് (FAIL_BLOCK_MS = 60000ms) - യഥാർത്ഥ Fatal എററുകൾക്ക് മാത്രം
                 if (failedOfficialHls[item.url] && (Date.now() - failedOfficialHls[item.url] < FAIL_BLOCK_MS)) {
                     return false;
                 }
@@ -2331,6 +2351,9 @@
                 maxBufferLength: 2.5,
                 maxMaxBufferLength: 4,
                 backBufferLength: 0,
+                maxBufferHole: 0.5,
+                highBufferWatchdogPeriod: 1,
+                nudgeMaxRetry: 5,
                 startFragPrefetch: true,
                 startLevel: -1,
                 capLevelToPlayerSize: false,
@@ -2541,6 +2564,9 @@
                             maxBufferLength: initMaxBuf,
                             maxMaxBufferLength: initMaxMaxBuf,
                             backBufferLength: 2,
+                            maxBufferHole: 0.5,
+                            highBufferWatchdogPeriod: 1,
+                            nudgeMaxRetry: 5,
                             startFragPrefetch: true,
                             startLevel: -1,
                             capLevelToPlayerSize: false,
@@ -2548,7 +2574,9 @@
                             manifestLoadingTimeOut: timeoutMs,
                             manifestLoadingMaxRetry: 0,
                             levelLoadingTimeOut: timeoutMs,
-                            fragLoadingTimeOut: Math.max(timeoutMs, FRAG_LOAD_MS) // Sweet Spot: 3000ms
+                            fragLoadingTimeOut: Math.max(timeoutMs, FRAG_LOAD_MS), // Sweet Spot: 3000ms
+                            fragLoadingMaxRetry: 2,
+                            fragLoadingRetryDelay: 350
                         });
 
                         hls._srcUrl = cand.url;
@@ -2651,6 +2679,7 @@
 
             attachPlaybackLifecycleListeners(videoEl, session);
             hlsInstance.attachMedia(videoEl);
+            try { hlsInstance.startLoad(); } catch (e) {}
             videoEl.play().catch(() => {
                 videoEl.muted = true;
                 videoEl.play().catch(() => {});
@@ -2701,11 +2730,7 @@
                         } catch (errR2) {}
                     }
 
-                    // Mark all attempted HLS URLs as failed for indicator if switching to YouTube
-                    round1Candidates.forEach(c => {
-                        if (!failedOfficialHls[c.url]) failedOfficialHls[c.url] = Date.now();
-                    });
-
+                    // ടൈംഔട്ട് ആകുന്ന ലിങ്കുകളെ 60 സെക്കൻഡ് ബ്ലോക്ക് ചെയ്യാതെ തുടർന്നും ശ്രമിക്കാൻ അനുവദിക്കുന്നു
                     if (bestChannelHlsUrl[channel.id]) {
                         delete bestChannelHlsUrl[channel.id];
                         saveBestHlsCache();
