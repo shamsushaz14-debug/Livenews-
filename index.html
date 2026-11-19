@@ -1269,10 +1269,9 @@
 
     <script>
         // ============================================================================
-        // UNIFIED APP & SERVICE WORKER CACHE VERSION (v33)
-        // ഓരോ അപ്‌ഡേറ്റിലും ഈ ഒരൊറ്റ വേർഷൻ നമ്പർ കൂട്ടിയാൽ മതി
+        // UNIFIED APP & SERVICE WORKER CACHE VERSION (v34)
         // ============================================================================
-        const APP_VERSION = "v33";
+        const APP_VERSION = "v34";
         const CACHE_VERSION = APP_VERSION;
 
         if ('serviceWorker' in navigator) {
@@ -1282,21 +1281,24 @@
         }
 
         // ============================================================================
-        // SWEET SPOT TIMINGS CONFIGURATION (സ്വീറ്റ് സ്പോട്ട് സമയങ്ങൾ)
+        // SWEET SPOT & ADAPTIVE TIMINGS CONFIGURATION
         // ============================================================================
-        const WORKER_BASE_URL = "https://multi-live-rapid-fetcher.shamsushaz14.workers.dev/";
-        const HLS_ROUND_1_MS      = 2500;  // HLS റൗണ്ട് 1: 2500ms
-        const HLS_ROUND_2_MS      = 4000;  // HLS റൗണ്ട് 2: 4000ms
-        const FRAG_LOAD_MS        = 3000;  // Fragment load: 3000ms
-        const STAGGER_DELAY_MS    = 400;   // Staggered ചേർക്കൽ: 400ms
-        const WORKER_TIMEOUT_MS   = 1500;  // Worker: 1500ms
-        const STREAMS_JSON_MS     = 2000;  // streams.json ലോഡ്: 2000ms
-        const MANIFEST_CHECK_MS   = 1000;  // Manifest പരിശോധന: 1000ms
-        const YT_WATCHDOG_MS      = 5000;  // YouTube watchdog (ഓരോ ID-ക്കും): 5000ms
-        const STALL_JUMP_MS       = 6500;  // Stall ചാട്ടം: 6500ms
-        const STALL_RECOVER_MS    = 4000;  // Stall റിക്കവറി: 4000ms
-        const FAIL_BLOCK_MS       = 60000; // പരാജയ ബ്ലോക്ക്: 60s (60000ms)
-        const MAX_CHANNEL_RETRIES = 3;
+        const WORKER_BASE_URL       = "https://multi-live-rapid-fetcher.shamsushaz14.workers.dev/";
+        const HLS_ROUND_1_MS        = 2500;  // Default HLS റൗണ്ട് 1: 2500ms (Adaptive: avg * 2.5, 1500-4000ms)
+        const HLS_ROUND_2_MS        = 4000;  // HLS റൗണ്ട് 2: 4000ms
+        const FRAG_LOAD_MS          = 3000;  // Fragment load: 3000ms
+        const STAGGER_DELAY_MS      = 400;   // Default Stagger: 400ms (Adaptive: avg + 200ms)
+        const WORKER_TIMEOUT_MS     = 800;   // Worker: 800ms (cache ഇല്ലാത്ത ചാനലിൽ മാത്രം ബാധിക്കും)
+        const STREAMS_JSON_MS       = 2000;  // streams.json ലോഡ്: 2000ms
+        const MANIFEST_CHECK_MS     = 1000;  // Manifest പരിശോധന: 1000ms
+        const YT_WATCHDOG_MS        = 5000;  // YouTube watchdog (ഓരോ ID-ക്കും): 5000ms
+        const STALL_JUMP_MS         = 6500;  // Stall ചാട്ടം: 6500ms
+        const STALL_RECOVER_MS      = 4000;  // Stall റിക്കവറി: 4000ms
+        const FAIL_BLOCK_MS         = 60000; // പരാജയ ബ്ലോക്ക്: 60s (60000ms)
+        const PRELOAD_BUFFER_MIN_S  = 4.0;   // ബഫർ ആരോഗ്യം: buffered.end - currentTime >= 4s
+        const PRELOAD_MAX_WAIT_MS   = 7000;  // ബഫർ കാത്തിരിപ്പ് പരമാവധി സമയം: 7s (6-8s പരിധിയിൽ)
+        const PRELOAD_POST_DELAY_MS = 400;   // ബഫർ ആരോഗ്യമായാൽ പ്രീലോഡ് ഡിലേ: 400ms (300-500ms പരിധിയിൽ)
+        const MAX_CHANNEL_RETRIES   = 3;
 
         // Safe localStorage wrappers
         function safeGetStorage(key) {
@@ -1532,6 +1534,7 @@
         let osdBannerTimer = null;
         let isOsdBannerVisible = false;
         let preloadScheduleTimer = null;
+        let preloadBufferPollInterval = null;
         let autoRecoverInProgress = false;
         let channelRetryCounts = {};
         let playerReady = false;
@@ -1556,6 +1559,7 @@
         let bestChannelHlsUrl = safeParseObj('news_tv_best_hls');
         let githubStreams = safeParseObj('news_tv_gh_streams');
         let workerStreamsCache = safeParseObj('news_tv_worker_cache');
+        let linkStartTimeStats = safeParseObj('news_tv_link_stats');
 
         // Source Indicator Tracking State
         let activePlayingSource = { type: null, value: null, slotKey: null };
@@ -1574,6 +1578,63 @@
 
         function saveBestHlsCache() {
             safeSetStorage('news_tv_best_hls', JSON.stringify(bestChannelHlsUrl));
+        }
+
+        // ============================================================================
+        // ADAPTIVE LINK START TIME TRACKING (അവസാന 5 ശരാശരി, ലിങ്ക് മാറിയാൽ റീസെറ്റ്)
+        // ============================================================================
+        function recordLinkStartTime(channelId, url, durationMs) {
+            if (channelId === undefined || !url || !isFinite(durationMs) || durationMs <= 20 || durationMs > 15000) return;
+            const key = String(channelId);
+            if (!linkStartTimeStats[key] || typeof linkStartTimeStats[key] !== 'object') {
+                linkStartTimeStats[key] = {};
+            }
+            const chStats = linkStartTimeStats[key];
+            if (!Array.isArray(chStats[url])) {
+                chStats[url] = [];
+            }
+            chStats[url].push(Math.round(durationMs));
+            if (chStats[url].length > 5) {
+                chStats[url].shift(); // അവസാന 5 അളവുകൾ മാത്രം സൂക്ഷിക്കുന്നു
+            }
+            safeSetStorage('news_tv_link_stats', JSON.stringify(linkStartTimeStats));
+        }
+
+        function getUrlAverageStartTime(channelId, url) {
+            const key = String(channelId);
+            const chStats = linkStartTimeStats[key];
+            if (!chStats || !Array.isArray(chStats[url]) || chStats[url].length === 0) {
+                return null;
+            }
+            const arr = chStats[url];
+            const sum = arr.reduce((a, b) => a + b, 0);
+            return Math.round(sum / arr.length);
+        }
+
+        function getAdaptiveChannelTiming(channelId, candidates) {
+            let bestAvg = null;
+            if (Array.isArray(candidates)) {
+                for (const c of candidates) {
+                    const avg = getUrlAverageStartTime(channelId, c.url);
+                    if (avg !== null && (bestAvg === null || avg < bestAvg)) {
+                        bestAvg = avg;
+                    }
+                }
+            }
+            if (bestAvg === null) {
+                return {
+                    staggerMs: STAGGER_DELAY_MS,
+                    raceTimeoutMs: HLS_ROUND_1_MS
+                };
+            }
+            // Stagger = ശരാശരി + ~200ms (സുരക്ഷിത പരിധി: 250ms - 1200ms)
+            const dynamicStagger = Math.max(250, Math.min(1200, Math.round(bestAvg + 200)));
+            // റേസ് ടൈംഔട്ട് = ശരാശരിയുടെ 2.5 മടങ്ങ് (പരിധി: 1500ms - 4000ms)
+            const dynamicTimeout = Math.max(1500, Math.min(4000, Math.round(bestAvg * 2.5)));
+            return {
+                staggerMs: dynamicStagger,
+                raceTimeoutMs: dynamicTimeout
+            };
         }
 
         // ============================================================================
@@ -1797,7 +1858,7 @@
             } catch (e) {}
         }
 
-        // 3 & 6.1 Worker-ൽ നിന്ന് HLS ലിങ്കും പുതുക്കിയ YouTube ID-യും (Sweet Spot: 1500ms)
+        // 3 & 6.1 Worker-ൽ നിന്ന് HLS ലിങ്കും പുതുക്കിയ YouTube ID-യും (800ms)
         function parseAndApplyWorkerResponse(channel, data) {
             if (!data || typeof data !== 'object') return;
             let entry = data;
@@ -2044,8 +2105,8 @@
                     channelRetryCounts[channels[currentIndex].id] = 0;
                 }
                 updateSourceIndicatorDots();
-                const preloadWait = (currentBandwidthMbps > 0 && currentBandwidthMbps < 2.2) ? 6000 : 3000;
-                scheduleNeighborPreloads(preloadWait);
+                // ബഫർ ആരോഗ്യം നോക്കി പ്രീലോഡ് ഷെഡ്യൂൾ ചെയ്യുന്നു
+                scheduleNeighborPreloads();
 
                 clearTimeout(continuousPlayTimer);
                 continuousPlayTimer = setTimeout(() => {
@@ -2074,6 +2135,15 @@
             }
         }
 
+        function clearPreloadTimers() {
+            clearTimeout(preloadScheduleTimer);
+            preloadScheduleTimer = null;
+            if (preloadBufferPollInterval) {
+                clearInterval(preloadBufferPollInterval);
+                preloadBufferPollInterval = null;
+            }
+        }
+
         function clearPreloadSlot(slotKey) {
             const slot = preloadPool[slotKey];
             if (!slot) return;
@@ -2093,13 +2163,13 @@
         }
 
         function clearAllPreloads() {
-            clearTimeout(preloadScheduleTimer);
+            clearPreloadTimers();
             clearPreloadSlot('next');
             clearPreloadSlot('prev');
         }
 
         // ============================================================================
-        // SINGLE UNIFIED HLS PRIORITY LIST (ഒറ്റ ലിസ്റ്റ് മുൻഗണനാ ക്രമം 1 മുതൽ 5 വരെ)
+        // SINGLE UNIFIED HLS PRIORITY LIST (1 മുതൽ 5 വരെ + ഏറ്റവും വേഗമുള്ള ലിങ്ക് ആദ്യം)
         // 1. cache (bestChannelHlsUrl) -> C
         // 2. GitHub streams.json       -> G
         // 3. Worker-ന്റെ HLS ലിങ്ക്      -> W
@@ -2118,7 +2188,8 @@
                         strictHd: strictHdFlag,
                         sourceName: sourceName,
                         priority: priorityNum,
-                        slotKey: slotKey
+                        slotKey: slotKey,
+                        avgStartMs: getUrlAverageStartTime(channel.id, url)
                     });
                 }
             };
@@ -2155,7 +2226,7 @@
                 }
             }
 
-            return list.filter(item => {
+            const filtered = list.filter(item => {
                 // പരാജയ ബ്ലോക്ക്: 60 സെക്കൻഡ് (FAIL_BLOCK_MS = 60000ms) - യഥാർത്ഥ Fatal എററുകൾക്ക് മാത്രം
                 if (failedOfficialHls[item.url] && (Date.now() - failedOfficialHls[item.url] < FAIL_BLOCK_MS)) {
                     return false;
@@ -2165,6 +2236,18 @@
                 }
                 return true;
             });
+
+            // ഏറ്റവും വേഗമുള്ള ലിങ്ക് ആദ്യം പരീക്ഷിക്കാൻ ശരാശരി ആരംഭ സമയം അനുസരിച്ച് ക്രമീകരിക്കുന്നു
+            filtered.sort((a, b) => {
+                if (a.avgStartMs !== null && b.avgStartMs !== null) {
+                    return a.avgStartMs - b.avgStartMs;
+                }
+                if (a.avgStartMs !== null) return -1;
+                if (b.avgStartMs !== null) return 1;
+                return a.priority - b.priority;
+            });
+
+            return filtered;
         }
 
         // Manifest പരിശോധന (Sweet Spot: 1000ms)
@@ -2309,10 +2392,14 @@
             });
         }
 
-        // അടുത്തതും മുമ്പത്തേതുമായ ചാനലുകൾ പശ്ചാത്തലത്തിൽ Preload ചെയ്യുന്നു
+        // ============================================================================
+        // LIGHTWEIGHT PRELOAD: autoStartLoad: false (Manifest + Level Playlist മാത്രം)
+        // ബാൻഡ്‌വിഡ്ത്ത് ഏതാണ്ട് ചെലവാകില്ല; play() വിളി ഒഴിവാക്കി; 1.5 Mbps നിയന്ത്രണം നിലനിർത്തി
+        // ============================================================================
         async function preloadChannelIntoSlot(slotKey, targetIndex) {
             if (targetIndex < 0 || targetIndex >= channels.length) return;
-            if (isLowBandwidthGuardActive && currentBandwidthMbps > 0 && currentBandwidthMbps < 1.5) return;
+            // 1.5 Mbps-ന് താഴെ പ്രീലോഡ് ഒഴിവാക്കുന്ന നിയന്ത്രണം
+            if (currentBandwidthMbps > 0 && currentBandwidthMbps < 1.5) return;
 
             const channel = channels[targetIndex];
             const slot = preloadPool[slotKey];
@@ -2327,7 +2414,7 @@
 
             let chosenUrl = candidates[0].url;
             let chosenSlotKey = candidates[0].slotKey || "C";
-            if (candidates.length > 1 && !bestChannelHlsUrl[channel.id]) {
+            if (candidates.length > 1 && !bestChannelHlsUrl[channel.id] && candidates[0].avgStartMs === null) {
                 try {
                     const fastest = await Promise.any(candidates.map(async c => {
                         await verifyFastHdManifest(c.url, true, MANIFEST_CHECK_MS);
@@ -2343,14 +2430,16 @@
             const preloadVideo = document.getElementById(slot.videoElId);
             if (!preloadVideo) return;
 
+            const preStartTime = performance.now();
             const preHls = new Hls({
+                autoStartLoad: false, // Manifest + ലെവൽ പ്ലേലിസ്റ്റ് മാത്രം (DNS + TLS + Manifest നേരത്തേ തീരും)
                 enableWorker: true,
                 lowLatencyMode: true,
                 liveSyncDurationCount: 1.0,
                 liveMaxLatencyDurationCount: 2.2,
-                maxBufferLength: 2.5,
-                maxMaxBufferLength: 4,
-                backBufferLength: 0,
+                maxBufferLength: 4,
+                maxMaxBufferLength: 10,
+                backBufferLength: 2,
                 maxBufferHole: 0.5,
                 highBufferWatchdogPeriod: 1,
                 nudgeMaxRetry: 5,
@@ -2375,6 +2464,10 @@
 
             preHls.on(Hls.Events.MANIFEST_PARSED, () => {
                 if (slot.hls !== preHls) return;
+                const elapsedMs = performance.now() - preStartTime;
+                recordLinkStartTime(channel.id, chosenUrl, elapsedMs);
+
+                // startLoad() സമയത്ത് ഏറ്റവും ഉയർന്ന ക്വാളിറ്റി ലോക്ക് ആകാൻ lockHlsHighestLevel പ്രവർത്തിക്കുന്നു
                 const isHdOk = lockHlsHighestLevel(preHls, true);
                 if (!isHdOk) {
                     sdFallbackUrls[chosenUrl] = Date.now();
@@ -2384,8 +2477,7 @@
                 bestChannelHlsUrl[channel.id] = chosenUrl;
                 saveBestHlsCache();
                 slot.ready = true;
-                preloadVideo.muted = true;
-                preloadVideo.play().catch(() => {});
+                // പ്രീലോഡ് സ്ലോട്ടിൽ play() വിളി ഒഴിവാക്കി
             });
 
             preHls.on(Hls.Events.ERROR, (ev, data) => {
@@ -2429,18 +2521,64 @@
             };
         }
 
-        function scheduleNeighborPreloads(delayMs = 3000) {
-            clearTimeout(preloadScheduleTimer);
-            preloadScheduleTimer = setTimeout(() => {
-                if (currentIndex === -1) return;
-                const { nextIdx, prevIdx } = getNeighborIndices(currentIndex);
-                if (nextIdx !== -1 && nextIdx !== currentIndex) {
-                    preloadChannelIntoSlot('next', nextIdx);
+        // ============================================================================
+        // BUFFER-HEALTH TRIGGERED PRELOAD SCHEDULER
+        // buffered.end - currentTime >= 4s (അല്ലെങ്കിൽ പരമാവധി 7s) + 400ms ഡിലേ
+        // ============================================================================
+        function triggerNeighborPreloadsNow(expectedSession) {
+            if (expectedSession !== playSessionId || currentIndex === -1) return;
+            if (currentBandwidthMbps > 0 && currentBandwidthMbps < 1.5) return;
+
+            const { nextIdx, prevIdx } = getNeighborIndices(currentIndex);
+            if (nextIdx !== -1 && nextIdx !== currentIndex) {
+                preloadChannelIntoSlot('next', nextIdx);
+            }
+            if (prevIdx !== -1 && prevIdx !== currentIndex && prevIdx !== nextIdx) {
+                preloadChannelIntoSlot('prev', prevIdx);
+            }
+        }
+
+        function isCurrentVideoBufferHealthy() {
+            if (!usingHls) return true; // YouTube മോഡിൽ ഉടൻ പ്രീലോഡ് തുടങ്ങാം
+            const videoEl = getActiveMainVideoEl();
+            if (!videoEl || !videoEl.buffered || videoEl.buffered.length === 0) return false;
+            try {
+                const bufEnd = videoEl.buffered.end(videoEl.buffered.length - 1);
+                return (bufEnd - videoEl.currentTime) >= PRELOAD_BUFFER_MIN_S;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        function scheduleNeighborPreloads() {
+            clearPreloadTimers();
+            const activeSession = playSessionId;
+            if (currentIndex === -1) return;
+            if (currentBandwidthMbps > 0 && currentBandwidthMbps < 1.5) return;
+
+            const startWait = Date.now();
+            const launchAfterShortDelay = () => {
+                clearPreloadTimers();
+                preloadScheduleTimer = setTimeout(() => {
+                    triggerNeighborPreloadsNow(activeSession);
+                }, PRELOAD_POST_DELAY_MS);
+            };
+
+            if (isCurrentVideoBufferHealthy()) {
+                launchAfterShortDelay();
+                return;
+            }
+
+            preloadBufferPollInterval = setInterval(() => {
+                if (activeSession !== playSessionId || currentIndex === -1) {
+                    clearPreloadTimers();
+                    return;
                 }
-                if (prevIdx !== -1 && prevIdx !== currentIndex && prevIdx !== nextIdx) {
-                    preloadChannelIntoSlot('prev', prevIdx);
+                const elapsed = Date.now() - startWait;
+                if (isCurrentVideoBufferHealthy() || elapsed >= PRELOAD_MAX_WAIT_MS) {
+                    launchAfterShortDelay();
                 }
-            }, delayMs);
+            }, 300);
         }
 
         function tryActivatePreloadedChannel(channel, session) {
@@ -2500,26 +2638,24 @@
             attachPlaybackLifecycleListeners(preloadedVideo, session);
             startStallMonitor(session);
 
-            if (hlsInstance.liveSyncPosition && Math.abs(preloadedVideo.currentTime - hlsInstance.liveSyncPosition) > 4) {
-                try { preloadedVideo.currentTime = hlsInstance.liveSyncPosition; } catch (e) {}
-            }
-
-            if (!preloadedVideo.paused) {
-                scheduleNeighborPreloads(3000);
-            }
+            // സ്വാപ്പ് ചെയ്തയുടൻ startLoad() വിളിച്ച ശേഷം play() ചെയ്യുന്നു
+            try { hlsInstance.startLoad(); } catch (e) {}
 
             preloadedVideo.play().catch(() => {
                 preloadedVideo.muted = true;
                 preloadedVideo.play().catch(() => {});
             });
 
+            // സ്വാപ്പ് കഴിഞ്ഞാൽ അടുത്ത അയൽ ചാനലുകൾക്കായി പ്രീലോഡ് വീണ്ടും ഷെഡ്യൂൾ ചെയ്യുന്നു
+            scheduleNeighborPreloads();
+
             return true;
         }
 
         // ============================================================================
-        // STAGGERED HLS RACE (400ms ഇടവേളയിൽ മുൻഗണനാ ക്രമത്തിൽ ചേർക്കൽ + 3000ms Frag Load)
+        // STAGGERED HLS RACE (Adaptive Stagger & Timeout + Start Time Measurement)
         // ============================================================================
-        function raceHlsCandidates(candidates, session, timeoutMs = HLS_ROUND_1_MS, requireStrictHd = true, staggerMs = STAGGER_DELAY_MS) {
+        function raceHlsCandidates(candidates, session, channelId, timeoutMs = HLS_ROUND_1_MS, requireStrictHd = true, staggerMs = STAGGER_DELAY_MS) {
             return new Promise((resolve, reject) => {
                 if (session !== playSessionId || candidates.length === 0) {
                     return reject({ reason: "EMPTY_OR_STALE", hadTimeout: false });
@@ -2556,6 +2692,7 @@
                     const launchCandidate = () => {
                         if (settled || session !== playSessionId) return;
 
+                        const candStartTime = performance.now();
                         const hls = new Hls({
                             enableWorker: true,
                             lowLatencyMode: true,
@@ -2589,6 +2726,9 @@
                                 try { hls.destroy(); } catch (e) {}
                                 return;
                             }
+
+                            const elapsedMs = performance.now() - candStartTime;
+                            recordLinkStartTime(channelId, hls._srcUrl, elapsedMs);
 
                             const isHdOk = lockHlsHighestLevel(hls, requireStrictHd);
                             if (!isHdOk) {
@@ -2636,7 +2776,6 @@
                         hls.loadSource(cand.url);
                     };
 
-                    // Staggered ചേർക്കൽ: 400ms ഇടവേളയിൽ ഓരോ മുൻഗണനാ ലിങ്കും ചേർക്കുന്നു
                     if (idx === 0 || staggerMs <= 0) {
                         launchCandidate();
                     } else {
@@ -2690,7 +2829,7 @@
             return true;
         }
 
-        // HLS റൗണ്ട് 1 (2500ms) -> എല്ലാം ടൈംഔട്ട് ആയാൽ മാത്രം HLS റൗണ്ട് 2 (4000ms)
+        // HLS റൗണ്ട് 1 (Adaptive 1500-4000ms) -> എല്ലാം ടൈംഔട്ട് ആയാൽ മാത്രം HLS റൗണ്ട് 2 (4000ms)
         async function tryOfficialHdHlsTwoRounds(channel, session) {
             const round1Candidates = getCandidateHlsList(channel, false);
             if (round1Candidates.length === 0) return false;
@@ -2700,10 +2839,12 @@
             if (!videoEl) return false;
 
             if (window.Hls && Hls.isSupported()) {
-                // --- HLS റൗണ്ട് 1: Sweet Spot 2500ms + 400ms Staggered ---
+                const adaptive = getAdaptiveChannelTiming(channel.id, round1Candidates);
+
+                // --- HLS റൗണ്ട് 1: Adaptive Timeout & Adaptive Stagger ---
                 try {
-                    const r1Timeout = getAdaptiveRaceTimeout(HLS_ROUND_1_MS);
-                    const winnerR1 = await raceHlsCandidates(round1Candidates, session, r1Timeout, true, STAGGER_DELAY_MS);
+                    const r1Timeout = getAdaptiveRaceTimeout(adaptive.raceTimeoutMs);
+                    const winnerR1 = await raceHlsCandidates(round1Candidates, session, channel.id, r1Timeout, true, adaptive.staggerMs);
                     if (session !== playSessionId) {
                         try { winnerR1.hls.destroy(); } catch (e) {}
                         return false;
@@ -2712,7 +2853,7 @@
                 } catch (errR1) {
                     if (session !== playSessionId) return false;
 
-                    // --- HLS റൗണ്ട് 2: Sweet Spot 4000ms + 400ms Staggered ---
+                    // --- HLS റൗണ്ട് 2: 4000ms + Adaptive Stagger ---
                     const round2Candidates = getCandidateHlsList(channel, false);
                     if (errR1 && errR1.hadTimeout && round2Candidates.length > 0) {
                         const statusEl = document.getElementById('channel-osd-status');
@@ -2720,7 +2861,7 @@
 
                         try {
                             const r2Timeout = getAdaptiveRaceTimeout(HLS_ROUND_2_MS);
-                            const winnerR2 = await raceHlsCandidates(round2Candidates, session, r2Timeout, true, STAGGER_DELAY_MS);
+                            const winnerR2 = await raceHlsCandidates(round2Candidates, session, channel.id, r2Timeout, true, adaptive.staggerMs);
                             if (session !== playSessionId) {
                                 try { winnerR2.hls.destroy(); } catch (e) {}
                                 return false;
@@ -2790,7 +2931,8 @@
 
             if (window.Hls && Hls.isSupported()) {
                 try {
-                    const winnerSd = await raceHlsCandidates(sdCandidates, session, HLS_ROUND_1_MS, false, STAGGER_DELAY_MS);
+                    const adaptive = getAdaptiveChannelTiming(channel.id, sdCandidates);
+                    const winnerSd = await raceHlsCandidates(sdCandidates, session, channel.id, adaptive.raceTimeoutMs, false, adaptive.staggerMs);
                     if (session !== playSessionId) {
                         try { winnerSd.hls.destroy(); } catch (e) {}
                         return false;
@@ -3025,7 +3167,7 @@
             isOsdBannerVisible = true;
             updateSourceIndicatorDots();
 
-            clearTimeout(preloadScheduleTimer);
+            clearPreloadTimers();
             clearYouTubeWatchdog();
             setAdShieldState(false);
             hideChannelUnavailableScreen();
@@ -3042,7 +3184,7 @@
 
             triggerCinematicSwitchTransition(channel, false, isFirstBoot);
 
-            // Worker (1500ms Sweet Spot): പശ്ചാത്തലത്തിൽ പുതിയ HLS ലിങ്കും YouTube ID-യും പരിശോധിക്കുന്നു
+            // Worker (800ms): പശ്ചാത്തലത്തിൽ പുതിയ HLS ലിങ്കും YouTube ID-യും പരിശോധിക്കുന്നു
             const workerPromise = fetchChannelWorkerData(channel, WORKER_TIMEOUT_MS);
             if (!bestChannelHlsUrl[channel.id] && !(channel.streamKey && githubStreams[channel.streamKey])) {
                 await workerPromise;
@@ -3050,7 +3192,7 @@
 
             if (session !== playSessionId) return;
 
-            // ഘട്ടം 1 മുതൽ 5 വരെ: HLS റൗണ്ട് 1 (2500ms) -> HLS റൗണ്ട് 2 (4000ms)
+            // ഘട്ടം 1 മുതൽ 5 വരെ: HLS റൗണ്ട് 1 (Adaptive 1500-4000ms) -> HLS റൗണ്ട് 2 (4000ms)
             const hlsHdSuccess = await tryOfficialHdHlsTwoRounds(channel, session);
             if (session !== playSessionId) return;
 
@@ -3251,7 +3393,7 @@
             }
             safeSetStorage('news_tv_favs', JSON.stringify(favorites));
             buildGrid();
-            scheduleNeighborPreloads(3000);
+            scheduleNeighborPreloads();
         }
 
         function playChannelById(id) {
@@ -3318,7 +3460,7 @@
                                 safeSetStorage('news_tv_live_ids', JSON.stringify(savedLiveIds));
                             }
                             updateSourceIndicatorDots();
-                            scheduleNeighborPreloads(3000);
+                            scheduleNeighborPreloads();
                         }
                     }
 
