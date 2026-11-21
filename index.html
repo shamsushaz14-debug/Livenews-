@@ -1286,9 +1286,9 @@
 
     <script>
         // ============================================================================
-        // UNIFIED APP & SERVICE WORKER CACHE VERSION (v38)
+        // UNIFIED APP & SERVICE WORKER CACHE VERSION (v39)
         // ============================================================================
-        const APP_VERSION = "v38";
+        const APP_VERSION = "v39";
         const CACHE_VERSION = APP_VERSION;
 
         if ('serviceWorker' in navigator) {
@@ -1298,14 +1298,14 @@
         }
 
         // ============================================================================
-        // TIGHT RACE, BATCHED HLS, HYBRID PRELOAD & SMART BUFFER CONFIGURATION
+        // TIGHT RACE, BATCHED HLS, HYBRID PRELOAD, CACHE EXPIRY & WORKER KV CONFIG
         // ============================================================================
         const WORKER_BASE_URL           = "https://multi-live-rapid-fetcher.shamsushaz14.workers.dev/";
         const HLS_ROUND_1_MS            = 1500;  // HLS റൗണ്ട് 1: 1500ms (Adaptive: 1200–3000ms)
         const HLS_ROUND_2_MS            = 2500;  // HLS റൗണ്ട് 2: 2500ms
         const FRAG_LOAD_MS              = 3000;  // Fragment load: 3000ms
         const STAGGER_DELAY_MS          = 150;   // Stagger: 150ms (Adaptive: 150–600ms)
-        const WORKER_TIMEOUT_MS         = 600;   // Worker: 600ms
+        const WORKER_TIMEOUT_MS         = 600;   // Worker: 600ms (മാറ്റമില്ല)
         const STREAMS_JSON_MS           = 2000;  // streams.json ലോഡ്: 2000ms
         const MANIFEST_CHECK_MS         = 1000;  // Manifest പരിശോധന: 1000ms
         const PRELOAD_MANIFEST_MS       = 2500;  // പ്രീലോഡ് മാനിഫെസ്റ്റ് ടൈംഔട്ട്: 2500ms
@@ -1318,6 +1318,9 @@
         const PRELOAD_POST_DELAY_MS     = 150;   // പ്രീലോഡ് പോസ്റ്റ്-ഡിലേ: 150ms
         const PRELOAD_MIN_BW_MBPS       = 1.0;   // 1.0 Mbps-ന് താഴെ പ്രീലോഡ് ഒഴിവാക്കും
         const SMART_BUFFER_BW_MBPS      = 1.8;   // Smart Buffer പരിധി: 1.8 Mbps
+        const CACHE_TOKEN_TTL_MS        = 90 * 60 * 1000;          // ടോക്കൺ/സെഷൻ ലിങ്ക് കാഷെ: 1.5 മണിക്കൂർ
+        const CACHE_NORMAL_TTL_MS       = 3 * 24 * 60 * 60 * 1000; // സാധാരണ ലിങ്ക് കാഷെ: 3 ദിവസം
+        const MAX_GITHUB_LINKS_PER_CH   = 2;     // streams.json-ൽ നിന്ന് ചാനലിന് പരമാവധി 2 G ലിങ്കുകൾ
         const MAX_CHANNEL_RETRIES       = 3;
 
         // Safe localStorage wrappers
@@ -1581,6 +1584,7 @@
         let githubStreams = safeParseObj('news_tv_gh_streams');
         let workerStreamsCache = safeParseObj('news_tv_worker_cache');
         let linkStartTimeStats = safeParseObj('news_tv_link_stats');
+        let reportedWorkerFeedback = {}; // അനാവശ്യ KV റൈറ്റുകൾ ഒഴിവാക്കാൻ
 
         // OSD Debug Failure Reasons State
         let hlsDebugReasons = [];
@@ -1600,8 +1604,162 @@
         let currentBandwidthMbps = 0;
         let isLowBandwidthGuardActive = false;
 
+        // ============================================================================
+        // CACHE EXPIRY & AUTO-MIGRATION ({ url, ts })
+        // ടോക്കൺ/സെഷൻ ലിങ്കുകൾ (Akamai v1/master, vglivessai, hdntl=, token=, expires=): 1.5h
+        // സാധാരണ ലിങ്കുകൾ: 3 ദിവസം
+        // ============================================================================
         function saveBestHlsCache() {
             safeSetStorage('news_tv_best_hls', JSON.stringify(bestChannelHlsUrl));
+        }
+
+        function isTokenizedStreamUrl(url) {
+            if (!url || typeof url !== 'string') return false;
+            return /v1\/master|vglivessai|hdntl=|token=|expires=/i.test(url);
+        }
+
+        function migrateBestHlsCache() {
+            let changed = false;
+            const now = Date.now();
+            Object.keys(bestChannelHlsUrl).forEach(key => {
+                const entry = bestChannelHlsUrl[key];
+                if (typeof entry === 'string') {
+                    // പഴയ string കാഷെ പുതിയ { url, ts } ഫോർമാറ്റിലേക്ക് സ്വയം മൈഗ്രേറ്റ് ചെയ്യുന്നു
+                    bestChannelHlsUrl[key] = { url: entry, ts: now };
+                    changed = true;
+                } else if (!entry || typeof entry !== 'object' || typeof entry.url !== 'string') {
+                    delete bestChannelHlsUrl[key];
+                    changed = true;
+                } else {
+                    const ts = typeof entry.ts === 'number' ? entry.ts : now;
+                    const ttl = isTokenizedStreamUrl(entry.url) ? CACHE_TOKEN_TTL_MS : CACHE_NORMAL_TTL_MS;
+                    if ((now - ts) > ttl) {
+                        delete bestChannelHlsUrl[key];
+                        changed = true;
+                    } else if (typeof entry.ts !== 'number') {
+                        bestChannelHlsUrl[key].ts = ts;
+                        changed = true;
+                    }
+                }
+            });
+            if (changed) saveBestHlsCache();
+        }
+
+        function getValidCachedHlsUrl(channelId) {
+            const entry = bestChannelHlsUrl[channelId];
+            if (!entry) return null;
+            if (typeof entry === 'string') {
+                bestChannelHlsUrl[channelId] = { url: entry, ts: Date.now() };
+                saveBestHlsCache();
+                return entry;
+            }
+            if (typeof entry !== 'object' || typeof entry.url !== 'string') {
+                delete bestChannelHlsUrl[channelId];
+                saveBestHlsCache();
+                return null;
+            }
+            const ttl = isTokenizedStreamUrl(entry.url) ? CACHE_TOKEN_TTL_MS : CACHE_NORMAL_TTL_MS;
+            if (!entry.ts || (Date.now() - entry.ts) > ttl) {
+                delete bestChannelHlsUrl[channelId];
+                saveBestHlsCache();
+                return null;
+            }
+            return entry.url;
+        }
+
+        function setCachedHlsUrl(channelId, url) {
+            if (channelId === undefined || !url || typeof url !== 'string') return;
+            bestChannelHlsUrl[channelId] = { url: url, ts: Date.now() };
+            saveBestHlsCache();
+        }
+
+        function clearCachedHlsUrl(channelId) {
+            if (bestChannelHlsUrl[channelId]) {
+                delete bestChannelHlsUrl[channelId];
+                saveBestHlsCache();
+            }
+        }
+
+        // കാഷെ മൈഗ്രേഷനും കാലഹരണപ്പെട്ട ലിങ്കുകളുടെ നീക്കം ചെയ്യലും സ്റ്റാർട്ടപ്പിൽ നടത്തുന്നു
+        migrateBestHlsCache();
+
+        // ============================================================================
+        // GITHUB streams.json (G) MULTI-LINK ARRAY EXTRACTOR (ചാനലിന് പരമാവധി 2 ലിങ്ക്)
+        // ============================================================================
+        function getGitHubUrlsForChannel(channel) {
+            if (!channel || !channel.streamKey || !githubStreams[channel.streamKey]) return [];
+            const ghEntry = githubStreams[channel.streamKey];
+            const rawList = [];
+
+            const pushIfValid = (u) => {
+                if (typeof u === 'string' && u.startsWith('http') && !rawList.includes(u)) {
+                    rawList.push(u);
+                }
+            };
+
+            if (typeof ghEntry === 'string') {
+                pushIfValid(ghEntry);
+            } else if (Array.isArray(ghEntry)) {
+                ghEntry.forEach(item => {
+                    if (typeof item === 'string') pushIfValid(item);
+                    else if (item && typeof item.url === 'string') pushIfValid(item.url);
+                });
+            } else if (ghEntry && typeof ghEntry === 'object') {
+                if (Array.isArray(ghEntry.urls)) {
+                    ghEntry.urls.forEach(item => pushIfValid(typeof item === 'string' ? item : (item && item.url)));
+                }
+                if (Array.isArray(ghEntry.hlsUrls)) {
+                    ghEntry.hlsUrls.forEach(item => pushIfValid(typeof item === 'string' ? item : (item && item.url)));
+                }
+                if (typeof ghEntry.url === 'string') {
+                    pushIfValid(ghEntry.url);
+                }
+                if (typeof ghEntry.hlsUrl === 'string') {
+                    pushIfValid(ghEntry.hlsUrl);
+                }
+            }
+
+            // ഒരു ചാനലിന് പരമാവധി 2 ലിങ്കുകൾ മാത്രം (ഒരു ബാച്ചിൽ ഒതുങ്ങാൻ)
+            return rawList.slice(0, MAX_GITHUB_LINKS_PER_CH);
+        }
+
+        // ============================================================================
+        // CLOUDFLARE WORKER (W) KV FEEDBACK (FIRE-AND-FORGET)
+        // മെയിൻ പ്ലെയറിൽ playing ആകുന്ന വിജയിച്ച https:// ലിങ്ക് KV-യിൽ സൂക്ഷിക്കുന്നു
+        // പ്രീലോഡ് ലിങ്കുകളോ നിലവിലുള്ള അതേ W ലിങ്കോ അനാവശ്യമായി വീണ്ടും അയക്കില്ല
+        // ============================================================================
+        function reportWorkingLinkToWorker(channel, url, hlsObj) {
+            if (!channel || !channel.streamKey || !url || typeof url !== 'string') return;
+            // https ലിങ്കുകൾ മാത്രമേ അയക്കാവൂ
+            if (!url.startsWith('https://')) return;
+            // പ്രീലോഡിൽ നിന്നുള്ള ലിങ്കുകൾ അനാവശ്യമായി അയക്കരുത്
+            if (hlsObj && (hlsObj._fromPreload || hlsObj._workerReported)) return;
+
+            // നിലവിലുള്ള അതേ W ലിങ്ക് ആണെങ്കിൽ വീണ്ടും അയക്കരുത്
+            const wCache = workerStreamsCache[channel.streamKey];
+            const currentWorkerUrl = channel.workerHlsUrl || (wCache && wCache.hlsUrl ? wCache.hlsUrl : null);
+            if (currentWorkerUrl && currentWorkerUrl === url) return;
+
+            // ഈ സെഷനിൽ ഇതിനകം ഇതേ ലിങ്ക് അയച്ചിട്ടുണ്ടെങ്കിൽ ആവർത്തിക്കരുത്
+            if (reportedWorkerFeedback[channel.streamKey] === url) return;
+
+            reportedWorkerFeedback[channel.streamKey] = url;
+            if (hlsObj) hlsObj._workerReported = true;
+
+            // പ്ലേ ആയതിന് ശേഷം പശ്ചാത്തലത്തിൽ (fire-and-forget, await ഇല്ലാതെ) അയക്കുന്നു
+            try {
+                const feedbackEndpoint = `${WORKER_BASE_URL}?action=report&channel=${encodeURIComponent(channel.streamKey)}`;
+                fetch(feedbackEndpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+                    body: JSON.stringify({
+                        channel: channel.streamKey,
+                        id: channel.id,
+                        lastWorkingUrl: url
+                    }),
+                    keepalive: true
+                }).catch(() => {});
+            } catch (e) {}
         }
 
         // ============================================================================
@@ -1717,10 +1875,9 @@
             const ch = channels[currentIndex];
             const wCache = workerStreamsCache[ch.streamKey];
 
-            const ghEntry = ch.streamKey && githubStreams[ch.streamKey] ? githubStreams[ch.streamKey] : null;
-            const gUrl = typeof ghEntry === 'string' ? ghEntry : (ghEntry && ghEntry.url ? ghEntry.url : null);
+            const gUrls = getGitHubUrlsForChannel(ch);
             const wUrl = ch.workerHlsUrl || (wCache && wCache.hlsUrl ? wCache.hlsUrl : null);
-            const cUrl = bestChannelHlsUrl[ch.id] || null;
+            const cUrl = getValidCachedHlsUrl(ch.id);
             const l1Url = (ch.hlsUrls && ch.hlsUrls[0]) ? ch.hlsUrls[0] : null;
             const l2Url = (ch.hlsUrls && ch.hlsUrls[1]) ? ch.hlsUrls[1] : null;
 
@@ -1734,7 +1891,7 @@
                     activeSlot = activePlayingSource.slotKey;
                 } else if (activePlayingSource.value) {
                     const u = activePlayingSource.value;
-                    if (gUrl && u === gUrl) activeSlot = 'G';
+                    if (gUrls.includes(u)) activeSlot = 'G';
                     else if (wUrl && u === wUrl) activeSlot = 'W';
                     else if (cUrl && u === cUrl) activeSlot = 'C';
                     else if (l1Url && u === l1Url) activeSlot = 'L1';
@@ -1921,7 +2078,7 @@
             } catch (e) {}
         }
 
-        // 2 & 6.1 Worker-ൽ നിന്ന് HLS ലിങ്കും പുതുക്കിയ YouTube ID-യും (600ms)
+        // 2 & 6.1 Worker-ൽ നിന്ന് KV lastWorkingUrl / HLS ലിങ്കും പുതുക്കിയ YouTube ID-യും (600ms)
         function parseAndApplyWorkerResponse(channel, data) {
             if (!data || typeof data !== 'object') return;
             let entry = data;
@@ -1935,7 +2092,7 @@
                 return;
             }
 
-            const hlsCandidate = entry.hlsUrl || entry.hls || entry.m3u8 || (typeof entry.url === 'string' && entry.url.includes('.m3u8') ? entry.url : null);
+            const hlsCandidate = entry.lastWorkingUrl || entry.hlsUrl || entry.hls || entry.m3u8 || (typeof entry.url === 'string' && entry.url.includes('.m3u8') ? entry.url : null);
             const vidCandidate = entry.videoId || entry.liveVideoId || entry.ytId || entry.id;
 
             if (hlsCandidate && typeof hlsCandidate === 'string' && hlsCandidate.startsWith('http')) {
@@ -2161,7 +2318,14 @@
                 if (session !== playSessionId || !usingHls) return;
                 hideChannelUnavailableScreen();
                 if (currentIndex !== -1) {
-                    channelRetryCounts[channels[currentIndex].id] = 0;
+                    const ch = channels[currentIndex];
+                    channelRetryCounts[ch.id] = 0;
+
+                    // മെയിൻ പ്ലെയറിൽ യഥാർത്ഥത്തിൽ playing ആയ വിജയിച്ച ലിങ്ക് Worker KV-ലേക്ക് പശ്ചാത്തലത്തിൽ അയക്കുന്നു
+                    const activeUrl = (hlsInstance && hlsInstance._srcUrl) ? hlsInstance._srcUrl : activePlayingSource.value;
+                    if (activeUrl) {
+                        reportWorkingLinkToWorker(ch, activeUrl, hlsInstance);
+                    }
                 }
                 updateSourceIndicatorDots();
                 // ബഫർ ആരോഗ്യം നോക്കി പ്രീലോഡ് ഷെഡ്യൂൾ ചെയ്യുന്നു
@@ -2229,9 +2393,9 @@
 
         // ============================================================================
         // SINGLE UNIFIED HLS PRIORITY LIST (ഉയർന്നത് → താഴ്ന്നത്)
-        // 1. G  - GitHub streams.json
-        // 2. W  - Cloudflare Worker
-        // 3. C  - Cache (അവസാനം വിജയിച്ച ലിങ്ക്)
+        // 1. G  - GitHub streams.json (പരമാവധി 2 ലിങ്കുകൾ)
+        // 2. W  - Cloudflare Worker (KV lastWorkingUrl / HLS)
+        // 3. C  - Cache (കാലഹരണപ്പെടാത്ത {url, ts})
         // 4. L1 - hlsUrls[0] (കോഡിലെ ആദ്യ ലിങ്ക് - ടോക്കൺ ഇല്ലാത്ത HD)
         // 5. L2 - hlsUrls[1] (കോഡിലെ രണ്ടാമത്തെ ലിങ്ക് - ടോക്കൺ ഉള്ളത്)
         // ============================================================================
@@ -2254,12 +2418,11 @@
                 }
             };
 
-            // 1. G - GitHub streams.json
-            if (channel.streamKey && githubStreams[channel.streamKey]) {
-                const ghEntry = githubStreams[channel.streamKey];
-                const ghUrl = typeof ghEntry === 'string' ? ghEntry : (ghEntry && ghEntry.url ? ghEntry.url : null);
-                addUniqueCandidate(ghUrl, "1. GitHub streams.json", 1, "G");
-            }
+            // 1. G - GitHub streams.json (അറേ സപ്പോർട്ട്, പരമാവധി 2 ലിങ്കുകൾ)
+            const ghUrls = getGitHubUrlsForChannel(channel);
+            ghUrls.forEach((ghUrl, idx) => {
+                addUniqueCandidate(ghUrl, idx === 0 ? "1. GitHub streams.json" : "1. GitHub streams.json #2", 1, "G");
+            });
 
             // 2. W - Cloudflare Worker
             const wCache = workerStreamsCache[channel.streamKey];
@@ -2268,9 +2431,10 @@
                 addUniqueCandidate(workerHls, "2. Worker HLS", 2, "W");
             }
 
-            // 3. C - Cache (bestChannelHlsUrl)
-            if (bestChannelHlsUrl[channel.id]) {
-                addUniqueCandidate(bestChannelHlsUrl[channel.id], "3. Cache", 3, "C");
+            // 3. C - Cache (Expiry & Migration പരിശോധനയോടെ)
+            const cachedUrl = getValidCachedHlsUrl(channel.id);
+            if (cachedUrl) {
+                addUniqueCandidate(cachedUrl, "3. Cache", 3, "C");
             }
 
             // 4. L1 & 5. L2 (hlsUrls[0], hlsUrls[1])
@@ -2439,9 +2603,8 @@
                     stopHlsPlayer();
                     if (session === playSessionId && currentIndex !== -1) {
                         failedOfficialHls[srcUrl] = Date.now();
-                        if (bestChannelHlsUrl[channels[currentIndex].id] === srcUrl) {
-                            delete bestChannelHlsUrl[channels[currentIndex].id];
-                            saveBestHlsCache();
+                        if (getValidCachedHlsUrl(channels[currentIndex].id) === srcUrl) {
+                            clearCachedHlsUrl(channels[currentIndex].id);
                         }
                         updateSourceIndicatorDots();
                         playChannel(currentIndex, false);
@@ -2517,6 +2680,7 @@
 
             preHls._srcUrl = chosenUrl;
             preHls._slotKey = chosenSlotKey;
+            preHls._fromPreload = true;
             slot.channelId = channel.id;
             slot.url = chosenUrl;
             slot.hls = preHls;
@@ -2536,8 +2700,7 @@
                     clearPreloadSlot(slotKey);
                     return;
                 }
-                bestChannelHlsUrl[channel.id] = chosenUrl;
-                saveBestHlsCache();
+                setCachedHlsUrl(channel.id, chosenUrl);
                 slot.ready = true;
 
                 // Next ചാനലിന് മാത്രം muted = true നിലനിർത്തി play() വിളിച്ച് ഫ്രാഗ്മെന്റ് ബഫർ വേഗത്തിൽ നിറയ്ക്കുന്നു
@@ -2687,6 +2850,7 @@
             preloadedVideo.muted = isMuted;
 
             hlsInstance = slot.hls;
+            hlsInstance._fromPreload = true;
             const activeUrl = slot.hls._srcUrl || slot.url;
             const activeSlotKey = slot.hls._slotKey || "G";
 
@@ -2812,6 +2976,7 @@
                         hls._srcUrl = cand.url;
                         hls._sourceName = cand.sourceName || "HLS";
                         hls._slotKey = cand.slotKey || null;
+                        hls._fromPreload = false;
                         tempControllers.push({ hls, url: cand.url });
 
                         hls.on(Hls.Events.MANIFEST_PARSED, () => {
@@ -2892,6 +3057,7 @@
 
             stopHlsPlayer();
             hlsInstance = winner.hls;
+            hlsInstance._fromPreload = false;
             const finalUrl = winner.hls._srcUrl || winner.url;
             const winnerSlotKey = winner.slotKey || winner.hls._slotKey || null;
 
@@ -2899,8 +3065,7 @@
 
             if (!isSdFallback) {
                 verifiedHdUrls[finalUrl] = true;
-                bestChannelHlsUrl[channel.id] = finalUrl;
-                saveBestHlsCache();
+                setCachedHlsUrl(channel.id, finalUrl);
             }
 
             usingHls = true;
@@ -2997,11 +3162,8 @@
                     }
                 }
 
-                // എല്ലാ ബാച്ചുകളും പരാജയപ്പെട്ടാൽ മാത്രം bestChannelHlsUrl ക്ലിയർ ചെയ്ത് YouTube-ലേക്ക് വിടുന്നു
-                if (bestChannelHlsUrl[channel.id]) {
-                    delete bestChannelHlsUrl[channel.id];
-                    saveBestHlsCache();
-                }
+                // എല്ലാ ബാച്ചുകളും പരാജയപ്പെട്ടാൽ മാത്രം കാഷെ ക്ലിയർ ചെയ്ത് YouTube-ലേക്ക് വിടുന്നു
+                clearCachedHlsUrl(channel.id);
                 updateSourceIndicatorDots();
                 return false;
             } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
@@ -3018,6 +3180,7 @@
                                 clearTimeout(t);
                                 usingHls = true;
                                 activePlayingSource = { type: 'hls', value: item.url, slotKey: item.slotKey };
+                                setCachedHlsUrl(channel.id, item.url);
                                 updateSourceIndicatorDots();
                                 clearYouTubeWatchdog();
                                 stopYouTubeApiPolling();
@@ -3323,7 +3486,7 @@
 
             // Worker (600ms): G (GitHub) ലിങ്ക് ഇല്ലാത്തപ്പോൾ W (Worker) ലഭിക്കാൻ കാത്തിരിക്കുന്നു
             const workerPromise = fetchChannelWorkerData(channel, WORKER_TIMEOUT_MS);
-            if (!(channel.streamKey && githubStreams[channel.streamKey])) {
+            if (getGitHubUrlsForChannel(channel).length === 0) {
                 await workerPromise;
             }
 
@@ -3867,12 +4030,9 @@
 
             // Refresh സമയത്ത് മുൻപ് പരാജയപ്പെട്ട ലിങ്കുകൾ ഏറ്റവും പിന്നിലേക്ക് മാറ്റുന്നു (L1/L2 മുന്നിൽ വരട്ടെ)
             const urlsToInspect = [];
-            if (bestChannelHlsUrl[currentChannel.id]) urlsToInspect.push(bestChannelHlsUrl[currentChannel.id]);
-            if (currentChannel.streamKey && githubStreams[currentChannel.streamKey]) {
-                const ghEntry = githubStreams[currentChannel.streamKey];
-                const ghUrl = typeof ghEntry === 'string' ? ghEntry : (ghEntry && ghEntry.url ? ghEntry.url : null);
-                if (ghUrl) urlsToInspect.push(ghUrl);
-            }
+            const cachedUrl = getValidCachedHlsUrl(currentChannel.id);
+            if (cachedUrl) urlsToInspect.push(cachedUrl);
+            getGitHubUrlsForChannel(currentChannel).forEach(u => urlsToInspect.push(u));
             if (currentChannel.workerHlsUrl) urlsToInspect.push(currentChannel.workerHlsUrl);
             if (currentChannel.hlsUrls) currentChannel.hlsUrls.forEach(u => urlsToInspect.push(u));
 
@@ -3886,8 +4046,7 @@
                 delete sdFallbackUrls[u];
             });
 
-            delete bestChannelHlsUrl[currentChannel.id];
-            saveBestHlsCache();
+            clearCachedHlsUrl(currentChannel.id);
             clearAllPreloads();
             await loadGitHubActionStreams();
 
